@@ -46,6 +46,7 @@
     <p class="lede">A small launcher for Mac and Windows. Pick a version and press Play: it downloads the game and Java, and installs mods for Fabric, Quilt, NeoForge and Forge from Modrinth.</p>
     <div class="cta">
       <a class="btn dark" id="hero-dl" href="/downloads">Download</a>
+      <button class="btn ghost" type="button" data-install="auto" hidden>Copy install command</button>
       <a class="ulink" href="https://github.com/xandertaylorx/crooli-mc-launcher">View the source</a>
     </div>
   </section>
@@ -239,22 +240,10 @@
     <p class="lede center"><b>Free and MIT licensed.</b> For playing with mods without learning how mod loaders work.</p>
     <div class="cta">
       <a class="btn dark" id="dl-main" href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest">Download <small id="dl-size"></small></a>
+      <button class="btn ghost" type="button" data-install="auto" hidden>Copy install command</button>
       <a class="ulink" id="other-dl" href="/downloads">All downloads and versions</a>
     </div>
-    <div class="installs">
-      <div class="cmdline">
-        <span class="tag">macOS</span>
-        <code id="h-mac">curl -fsSL https://mclauncher.crooli.com/install.sh | bash</code>
-        <button class="copy" type="button" data-copy="#h-mac"><span class="lbl">Copy</span></button>
-      </div>
-      <div class="cmdline">
-        <span class="tag">Windows</span>
-        <code id="h-win">irm https://mclauncher.crooli.com/install.ps1 | iex</code>
-        <button class="copy" type="button" data-copy="#h-win"><span class="lbl">Copy</span></button>
-      </div>
-    </div>
-    <p class="fine">One line: it downloads the latest version from GitHub, checks it, puts it in Applications (Mac) or runs the installer (Windows), and opens it. <a href="/install.sh">Read the Mac script</a> or <a href="/install.ps1">the Windows one</a> first if you like.</p>
-    <div class="cmdline src">
+        <div class="cmdline src">
       <span class="tag">Source</span>
       <code id="cmd-src">git clone https://github.com/xandertaylorx/crooli-mc-launcher &amp;&amp; cd crooli-mc-launcher &amp;&amp; npm install &amp;&amp; npm start</code>
       <button class="copy" type="button" data-copy="#cmd-src"><span class="lbl">Copy</span></button>

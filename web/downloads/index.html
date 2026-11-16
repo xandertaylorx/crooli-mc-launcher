@@ -50,42 +50,23 @@
     <article class="platform" data-os="mac-arm">
       <h2>Mac with Apple Silicon</h2>
       <p>M1, M2, M3, M4 and later. Most Macs from 2021 on.</p>
-      <a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .dmg</a>
+      <div class="actions"><a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .dmg</a><button class="btn ghost" type="button" data-install="mac">Copy command</button></div>
       <p class="meta" data-meta></p>
     </article>
     <article class="platform" data-os="mac-intel">
       <h2>Mac with Intel</h2>
       <p>Older Macs with an Intel processor.</p>
-      <a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .dmg</a>
+      <div class="actions"><a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .dmg</a><button class="btn ghost" type="button" data-install="mac">Copy command</button></div>
       <p class="meta" data-meta></p>
     </article>
     <article class="platform" data-os="windows">
       <h2>Windows</h2>
       <p>Windows 10 and 11, 64-bit.</p>
-      <a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .exe</a>
+      <div class="actions"><a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .exe</a><button class="btn ghost" type="button" data-install="win">Copy command</button></div>
       <p class="meta" data-meta></p>
     </article>
   </section>
   <p class="fine center which">Not sure which Mac you have? Open the Apple menu, choose <b>About This Mac</b>, and look for <b>Chip</b> (Apple Silicon) or <b>Processor</b> (Intel).</p>
-
-  <!-- 2b. One line -->
-  <section class="oneline">
-    <h2 class="h2 center">Or install it with one line.</h2>
-    <p class="lede center">Paste it into Terminal (Mac) or PowerShell (Windows). It also clears the “unsigned app” prompt for you.</p>
-    <div class="installs">
-      <div class="cmdline">
-        <span class="tag">macOS</span>
-        <code id="d-mac">curl -fsSL https://mclauncher.crooli.com/install.sh | bash</code>
-        <button class="copy" type="button" data-copy="#d-mac"><span class="lbl">Copy</span></button>
-      </div>
-      <div class="cmdline">
-        <span class="tag">Windows</span>
-        <code id="d-win">irm https://mclauncher.crooli.com/install.ps1 | iex</code>
-        <button class="copy" type="button" data-copy="#d-win"><span class="lbl">Copy</span></button>
-      </div>
-    </div>
-    <p class="fine">One line: it downloads the latest version from GitHub, checks it, puts it in Applications (Mac) or runs the installer (Windows), and opens it. <a href="/install.sh">Read the Mac script</a> or <a href="/install.ps1">the Windows one</a> first if you like.</p>
-  </section>
 
   <!-- 3. First launch -->
   <section class="first">
@@ -94,7 +75,7 @@
     <div class="first-cols">
       <div>
         <h3>On a Mac</h3>
-        <p>Easiest: use the one-line install above. Or drag the app into Applications, and if macOS says it’s damaged or can’t be opened, paste this into Terminal once:</p>
+        <p>Easiest: press <b>Copy command</b> above and paste it into Terminal. Or drag the app into Applications, and if macOS says it’s damaged or can’t be opened, paste this into Terminal once:</p>
         <div class="cmdline">
           <code id="cmd-xattr">xattr -cr "/Applications/Crooli MC Launcher.app"</code>
           <button class="copy" type="button" data-copy="#cmd-xattr"><span class="lbl">Copy</span></button>

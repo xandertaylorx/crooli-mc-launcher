@@ -276,3 +276,27 @@ applyTheme(currentTheme())
   addEventListener('resize', () => { clearTimeout(t); t = setTimeout(paint, 120) })
   new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
 })()
+
+
+/* ---------------- "Copy install command" buttons ---------------- */
+;(() => {
+  const CMD = { mac: 'curl -fsSL https://mclauncher.crooli.com/install.sh | bash', win: 'irm https://mclauncher.crooli.com/install.ps1 | iex' }
+  const ua = navigator.userAgent, plat = navigator.platform || ''
+  const mine = /Mac/.test(plat) || /Macintosh/.test(ua) ? 'mac' : /Win/.test(plat) || /Windows/.test(ua) ? 'win' : null
+  document.querySelectorAll('[data-install]').forEach((btn) => {
+    const which = btn.dataset.install === 'auto' ? mine : btn.dataset.install
+    if (!which) return // no one-line install for this system: the button stays hidden
+    btn.hidden = false
+    btn.title = CMD[which]
+    const original = btn.textContent
+    btn.addEventListener('click', async () => {
+      try {
+        await navigator.clipboard.writeText(CMD[which])
+        btn.textContent = btn.closest('.platform') ? 'Copied' : which === 'mac' ? 'Copied: paste it in Terminal' : 'Copied: paste it in PowerShell'
+      } catch {
+        btn.textContent = CMD[which]
+      }
+      setTimeout(() => (btn.textContent = original), 2600)
+    })
+  })
+})()

@@ -101,6 +101,9 @@ section[id] { scroll-margin-top: 96px; }
 }
 .btn.dark { background: var(--btn-bg); color: var(--btn-fg); }
 .btn.dark:hover { background: var(--btn-bg-hover); transform: translateY(-1px); box-shadow: 0 10px 24px -10px rgba(0,0,0,.45); }
+.btn.ghost { background: var(--paper); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+.btn.ghost:hover { background: var(--tile); transform: translateY(-1px); }
+.btn[hidden] { display: none; }
 .btn small:empty { display: none; }
 .btn small { font: 400 13px/1 var(--mono); opacity: .55; }
 .ulink {
@@ -249,14 +252,6 @@ section[id] { scroll-margin-top: 96px; }
 @media (max-width: 1000px) { .fgrid { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 @media (max-width: 620px) { .fgrid { grid-template-columns: 1fr; } }
 
-/* ---------- one-line install ---------- */
-.installs { display: grid; gap: 10px; margin-top: 40px; }
-.installs .cmdline { margin-top: 0; }
-.installs .tag { min-width: 76px; text-align: center; }
-.get .cmdline.src { margin-top: 24px; }
-.oneline { max-width: 880px; margin: var(--section) auto 0; padding: 0 var(--side); text-align: center; }
-.oneline .lede { margin-top: 16px; }
-.oneline .fine { max-width: 36em; margin-inline: auto; }
 
 /* ---------- footer: the grass block, full width, with the words on top ---------- */
 .foot { position: relative; margin: var(--section) 0 0; min-height: 230px; display: grid; align-items: end; overflow: hidden; color: #fff; }
@@ -327,7 +322,7 @@ section[id] { scroll-margin-top: 96px; }
 .dl-intro { padding-bottom: clamp(40px, 5vw, 64px); }
 .platforms { max-width: var(--wide); margin: 0 auto; padding: 0 var(--side); display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
 .platform {
-  display: flex; flex-direction: column; align-items: flex-start; padding: 32px;
+  display: flex; flex-direction: column; align-items: flex-start; padding: 28px 24px;
   border-radius: var(--radius); background: var(--paper); box-shadow: inset 0 0 0 1px var(--line);
   animation: up .9s var(--ease) backwards;
 }
@@ -336,7 +331,9 @@ section[id] { scroll-margin-top: 96px; }
 .platform .tag { margin-bottom: 14px; }
 .platform h2 { font: 500 26px/1.1 var(--display); letter-spacing: -0.012em; }
 .platform > p { margin: 8px 0 28px; color: var(--ink-2); font-size: 15px; }
-.platform .btn { margin-top: auto; } /* buttons line up along the bottom of every card */
+.platform .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; } /* buttons line up along the bottom of every card */
+.platform .btn { margin-top: 0; padding-inline: 14px; font-size: 15px; white-space: nowrap; }
+.platform .actions { gap: 8px; }
 .platform .meta { margin-top: 12px; font: 400 13px/1.4 var(--mono); color: var(--dim); }
 .ico { width: 17px; height: 17px; flex: none; fill: none; stroke: currentColor; stroke-width: 1.9; stroke-linecap: round; stroke-linejoin: round; }
 .which { max-width: 760px; margin: 22px auto 0; padding: 0 var(--side); }
