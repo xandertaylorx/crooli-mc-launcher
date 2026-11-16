@@ -204,10 +204,10 @@ function renderPlayButton() {
   const [l1, l2] = !i ? ['Get started', 'Create an installation']
     : state === 'preparing' ? ['Cancel', 'Stop and remove what it downloaded']
     : state === 'cancelling' ? ['Cancelling', 'Cleaning up…']
-    : state === 'running' ? ['Playing', `Minecraft ${i.mc} is running`]
+    : state === 'running' ? ['Playing', 'Click to close Minecraft']
     : ['Play', `Minecraft ${i.mc}${isModded(i) ? ' with ' + loaderName(i) : ''}`];
   b.querySelector('.l1').textContent = l1; $('#play-l2').textContent = l2;
-  b.disabled = state === 'running' || state === 'cancelling';
+  b.disabled = state === 'cancelling'; // while the game runs it stays clickable: that stops it
   b.classList.toggle('cancel', state === 'preparing');
   b.classList.toggle('playing', state === 'running'); // yellow while the game is open
 }
@@ -360,6 +360,7 @@ async function launch() {
   const i = inst();
   if (!i) { show('instances'); $('#f-name').focus(); return; }
   if (state === 'preparing') { await api.cancelLaunch(); return; }
+  if (state === 'running') { if (confirm('Close Minecraft? Anything you haven’t saved in the game is lost.')) await api.kill(); return; }
   if (state !== 'idle') return;
   $('#log').textContent = '';
   const r = await api.launch(i.id);

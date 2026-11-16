@@ -117,29 +117,31 @@ function startScripts(srv) {
   return { sh, bat, readme };
 }
 function exportZip(srv, dest, onProgress = () => {}) {
-  const archiver = require('archiver');
+  const yazl = require('yazl');
   const dir = dirOf(srv.id), top = (srv.name || 'server').replace(/[^\w .-]+/g, '').trim() || 'server';
   return new Promise((resolve, reject) => {
+    const zip = new yazl.ZipFile();
     const out = fs.createWriteStream(dest);
-    const zip = archiver('zip', { zlib: { level: 6 } });
-    out.on('close', () => resolve({ bytes: zip.pointer() }));
-    out.on('error', reject); zip.on('error', reject);
-    zip.on('progress', (p) => onProgress(p.entries.processed, p.entries.total));
-    zip.pipe(out);
+    out.on('close', () => resolve({ bytes: fs.statSync(dest).size }));
+    out.on('error', reject); zip.outputStream.on('error', reject);
+    zip.outputStream.pipe(out);
+    let n = 0;
     const walk = (rel) => {
       for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
         if (SKIP.test(e.name)) continue;
         const r = path.join(rel, e.name);
         if (e.isDirectory()) walk(r);
-        else if (e.isFile()) zip.file(path.join(dir, r), { name: path.posix.join(top, ...r.split(path.sep)) });
+        else if (e.isFile()) { zip.addFile(path.join(dir, r), path.posix.join(top, ...r.split(path.sep))); onProgress(++n); }
       }
     };
-    walk('');
-    const sc = startScripts(srv);
-    zip.append(sc.sh, { name: `${top}/start.sh`, mode: 0o755 });
-    zip.append(sc.bat, { name: `${top}/start.bat` });
-    zip.append(sc.readme, { name: `${top}/README.txt` });
-    zip.finalize();
+    try {
+      walk('');
+      const sc = startScripts(srv);
+      zip.addBuffer(Buffer.from(sc.sh), `${top}/start.sh`, { mode: 0o100755 });
+      zip.addBuffer(Buffer.from(sc.bat), `${top}/start.bat`);
+      zip.addBuffer(Buffer.from(sc.readme), `${top}/README.txt`);
+      zip.end();
+    } catch (e) { reject(e); }
   });
 }
 
