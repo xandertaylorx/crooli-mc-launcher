@@ -1,4 +1,4 @@
-const { app, BrowserWindow, ipcMain, shell, Menu } = require('electron');
+const { app, BrowserWindow, ipcMain, shell, Menu, dialog, nativeImage } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const core = require('./core/util');
@@ -10,7 +10,10 @@ const store = require('./core/store');
 const V = require('./core/versions');
 const L = require('./core/launch');
 const mods = require('./core/modrinth');
+const packs = require('./core/packs');
+const skin = require('./core/skin');
 const { createUpdater } = require('./core/updater');
+const servers = require('./core/servers');
 
 let win, game = null;
 const send = (ch, p) => win && !win.isDestroyed() && win.webContents.send(ch, p);
@@ -18,8 +21,11 @@ const updater = createUpdater({ app, shell, send });
 const instDir = id => path.join(core.dirs.instances(), path.basename(id));
 const getInst = id => store.load().instances.find(i => i.id === id);
 
+const appIcon = nativeImage.createFromPath(path.join(__dirname, 'assets', 'icon.png'));
+
 function createWindow() {
   win = new BrowserWindow({
+    icon: appIcon,
     width: 1080, height: 720, minWidth: 900, minHeight: 620,
     backgroundColor: '#33363c', title: 'Crooli MC Launcher', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
@@ -30,12 +36,23 @@ function createWindow() {
 
 app.whenReady().then(() => {
   if (process.platform === 'win32') Menu.setApplicationMenu(null);
+  // Packaged Mac apps get their icon from the bundle; while developing, set the Dock icon ourselves.
+  if (process.platform === 'darwin' && app.dock && !app.isPackaged && !appIcon.isEmpty()) app.dock.setIcon(appIcon);
   createWindow();
   // Packaged builds check on their own; CROOLI_UPDATE_CHECK=1 lets a dev build try it too.
   if (app.isPackaged || process.env.CROOLI_UPDATE_CHECK) updater.start();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 app.on('window-all-closed', () => app.quit());
+
+// Running servers get a proper "stop" (which saves the world) before the app closes.
+let stoppingServers = false;
+app.on('before-quit', (e) => {
+  if (!servers.isRunning() || stoppingServers) return;
+  e.preventDefault();
+  stoppingServers = true;
+  servers.stopAll(send).finally(() => app.quit());
+});
 
 // ---- IPC ----
 ipcMain.handle('init', async () => {
@@ -48,6 +65,7 @@ ipcMain.handle('init', async () => {
 ipcMain.handle('update:check', () => updater.check(true));
 ipcMain.handle('update:apply', () => {
   if (game) return { error: 'Close Minecraft first, then update.' };
+  if (servers.isRunning()) return { error: 'Stop your servers first, then update.' };
   updater.apply();
   return { ok: true };
 });
@@ -85,30 +103,135 @@ ipcMain.handle('instance:delete', (_e, id) => {
 
 ipcMain.handle('instance:open', (_e, id) => { fs.mkdirSync(instDir(id), { recursive: true }); return shell.openPath(instDir(id)); });
 
+let launching = null; // the job for a launch that is still getting files ready
 ipcMain.handle('game:launch', async (_e, id) => {
-  if (game) return { error: 'The game is already running.' };
+  if (game || launching) return { error: 'The game is already running.' };
   const inst = getInst(id), s = store.load();
   if (!inst) return { error: 'No instance selected.' };
+  const job = core.newJob();
+  launching = job;
   try {
     send('game:state', 'preparing');
-    game = await L.launch(inst, { name: s.username }, (t, p) => send('game:' + t, p), { javaOverride: s.javaPath || null });
+    game = await job.run(() => L.launch(inst, { name: s.username }, (t, p) => send('game:' + t, p), { javaOverride: s.javaPath || null }));
+    launching = null;
     send('game:state', 'running');
     game.on('exit', code => { game = null; send('game:state', 'idle'); send('game:log', `Game exited with code ${code}`); });
     game.on('error', err => { game = null; send('game:state', 'idle'); send('game:log', 'Failed to start: ' + err.message); });
     return { ok: true };
   } catch (e) {
-    game = null; send('game:state', 'idle');
+    launching = null; game = null;
+    if (e.cancelled || job.cancelled()) {
+      job.rollback();
+      send('game:state', 'idle');
+      return { cancelled: true };
+    }
+    send('game:state', 'idle');
     return { error: e.message };
   }
 });
+// Stops a launch that is still downloading, then deletes the files that launch had downloaded.
+ipcMain.handle('game:cancel', () => { if (launching) { send('game:state', 'cancelling'); launching.abort(); } return { ok: true }; });
 ipcMain.handle('game:kill', () => { if (game) game.kill(); });
 
-ipcMain.handle('mods:search', async (_e, args) => { try { return await mods.search(args); } catch (e) { return { error: e.message }; } });
-ipcMain.handle('mods:install', async (_e, { id, projectId }) => {
-  const inst = getInst(id);
-  if (inst.loader === 'vanilla') return { error: 'Switch this instance to Fabric first.' };
-  try { return { files: await mods.install(instDir(id), projectId, inst.mc, inst.loader) }; } catch (e) { return { error: e.message }; }
+// ---- mods, resource packs and shader packs (kind is "mod", "resourcepack" or "shader") ----
+const KINDS = ['mod', 'resourcepack', 'shader'];
+const kindOf = (k) => (KINDS.includes(k) ? k : 'mod');
+ipcMain.handle('packs:search', async (_e, args) => { try { return await mods.search({ ...args, type: kindOf(args.type) }); } catch (e) { return { error: e.message }; } });
+ipcMain.handle('packs:install', async (_e, { id, projectId, type }) => {
+  const inst = getInst(id), kind = kindOf(type);
+  if (!inst) return { error: 'Pick an installation first.' };
+  if (kind === 'mod' && inst.loader !== 'fabric') return { error: 'Switch this installation to Fabric first.' };
+  if (kind === 'shader' && inst.loader !== 'fabric') return { error: 'Shader packs need Fabric and Iris. Make a Fabric installation.' };
+  try { return await mods.install(instDir(id), projectId, inst.mc, inst.loader, kind); } catch (e) { return { error: e.message }; }
 });
-ipcMain.handle('mods:list', (_e, id) => mods.listInstalled(instDir(id)));
-ipcMain.handle('mods:remove', (_e, { id, file }) => { mods.remove(instDir(id), file); return mods.listInstalled(instDir(id)); });
-ipcMain.handle('mods:toggle', (_e, { id, file }) => { mods.toggle(instDir(id), file); return mods.listInstalled(instDir(id)); });
+ipcMain.handle('packs:list', (_e, { id, type }) => packs.list(instDir(id), kindOf(type), (getInst(id) || {}).mc));
+const whenClosed = () => (game ? 'Close Minecraft first: it saves its settings when it quits and would undo this.' : null);
+ipcMain.handle('packs:toggle', (_e, { id, type, file }) => {
+  const kind = kindOf(type);
+  if (kind !== 'mod' && whenClosed()) return { error: whenClosed() };
+  try { packs.toggle(instDir(id), kind, file, (getInst(id) || {}).mc); return { list: packs.list(instDir(id), kind, (getInst(id) || {}).mc) }; } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('packs:remove', (_e, { id, type, file }) => {
+  const kind = kindOf(type);
+  if (kind !== 'mod' && whenClosed()) return { error: whenClosed() };
+  packs.remove(instDir(id), kind, file, (getInst(id) || {}).mc);
+  return { list: packs.list(instDir(id), kind, (getInst(id) || {}).mc) };
+});
+// Add things from the computer: a file/folder picker, or paths from a drag-and-drop.
+function addPaths(id, paths) {
+  const inst = getInst(id);
+  if (!inst) return { error: 'Pick an installation first.' };
+  const results = packs.addLocal(instDir(id), paths, { loader: inst.loader });
+  return { results, lists: Object.fromEntries(KINDS.map((k) => [k, packs.list(instDir(id), k, inst.mc)])) };
+}
+ipcMain.handle('packs:pick', async (_e, { id, folder }) => {
+  const r = await dialog.showOpenDialog(win, {
+    title: folder ? 'Choose a pack folder' : 'Choose a mod, resource pack or shader pack',
+    properties: folder ? ['openDirectory', 'multiSelections'] : ['openFile', 'multiSelections'],
+    filters: folder ? undefined : [{ name: 'Mods and packs', extensions: ['jar', 'zip'] }],
+  });
+  return r.canceled ? { canceled: true } : addPaths(id, r.filePaths);
+});
+ipcMain.handle('packs:add', (_e, { id, paths }) => addPaths(id, (paths || []).filter((p) => typeof p === 'string')));
+
+// ---- servers ----
+const getSrv = id => (store.load().servers || []).find(s => s.id === id);
+const clampInt = (v, lo, hi, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
+
+ipcMain.handle('servers:save', (_e, input) => {
+  const s = store.load();
+  s.servers = s.servers || [];
+  const isNew = !input.id;
+  if (isNew && !input.agreedEula) return { error: 'Agree to the Minecraft EULA to create a server.' };
+  const srv = {
+    id: input.id || (String(input.name || 'server').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'server') + '-' + Date.now().toString(36),
+    name: String(input.name || 'My Server').slice(0, 40),
+    mc: String(input.mc),
+    type: input.type === 'fabric' ? 'fabric' : 'vanilla',
+    ram: clampInt(input.ram, 1024, 32768, 2048),
+    port: clampInt(input.port, 1024, 65535, 25565),
+    gamemode: ['survival', 'creative', 'adventure', 'spectator'].includes(input.gamemode) ? input.gamemode : 'survival',
+    difficulty: ['peaceful', 'easy', 'normal', 'hard'].includes(input.difficulty) ? input.difficulty : 'normal',
+    offline: !!input.offline,
+  };
+  if (isNew) servers.writeEula(srv.id);
+  const i = s.servers.findIndex(x => x.id === srv.id);
+  if (i >= 0) s.servers[i] = srv; else s.servers.push(srv);
+  s.selectedServer = srv.id;
+  store.save(s);
+  return s;
+});
+
+ipcMain.handle('servers:delete', async (_e, id) => {
+  await servers.stop(id, send);
+  const s = store.load();
+  s.servers = (s.servers || []).filter(x => x.id !== id);
+  if (s.selectedServer === id) s.selectedServer = s.servers[0] ? s.servers[0].id : null;
+  store.save(s);
+  fs.rmSync(servers.dirOf(id), { recursive: true, force: true });
+  return s;
+});
+
+ipcMain.handle('servers:start', async (_e, id) => {
+  const srv = getSrv(id);
+  if (!srv) return { error: 'Pick a server first.' };
+  try { await servers.start(srv, send, { javaOverride: store.load().javaPath || null }); return { ok: true }; }
+  catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('servers:stop', async (_e, id) => { await servers.stop(id, send); return { ok: true }; });
+ipcMain.handle('servers:command', (_e, { id, text }) => {
+  try { servers.command(id, text); return { ok: true }; } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('servers:status', (_e, id) => ({ ...servers.status(id), ...servers.addresses((getSrv(id) || {}).port || 25565) }));
+ipcMain.handle('servers:open', (_e, { id, sub }) => {
+  const where = { world: 'world', mods: 'mods' }[sub] || '';
+  const p = path.join(servers.dirOf(id), where);
+  fs.mkdirSync(p, { recursive: true });
+  return shell.openPath(p);
+});
+
+// ---- skins ----
+ipcMain.handle('skin:load', () => skin.load());
+ipcMain.handle('skin:save', (_e, s) => { try { skin.save(s); return { ok: true }; } catch (e) { return { error: e.message }; } });
+ipcMain.handle('skin:clear', () => { skin.clear(); return { ok: true }; });
+ipcMain.handle('skin:lookup', async (_e, name) => { try { return await skin.lookup(String(name).trim()); } catch (e) { return { error: e.message }; } });

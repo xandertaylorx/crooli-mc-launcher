@@ -1,4 +1,4 @@
-const { contextBridge, ipcRenderer } = require('electron');
+const { contextBridge, ipcRenderer, webUtils } = require('electron');
 const call = ch => (...a) => ipcRenderer.invoke(ch, ...a);
 contextBridge.exposeInMainWorld('api', {
   init: call('init'),
@@ -9,13 +9,28 @@ contextBridge.exposeInMainWorld('api', {
   openInstance: call('instance:open'),
   launch: call('game:launch'),
   kill: call('game:kill'),
-  searchMods: call('mods:search'),
+  cancelLaunch: call('game:cancel'),
+  searchPacks: call('packs:search'),
   // main.js takes one { id, ... } object for these
-  installMod: (id, projectId) => ipcRenderer.invoke('mods:install', { id, projectId }),
-  listMods: call('mods:list'),
-  removeMod: (id, file) => ipcRenderer.invoke('mods:remove', { id, file }),
-  toggleMod: (id, file) => ipcRenderer.invoke('mods:toggle', { id, file }),
+  installPack: (id, projectId, type) => ipcRenderer.invoke('packs:install', { id, projectId, type }),
+  listPacks: (id, type) => ipcRenderer.invoke('packs:list', { id, type }),
+  togglePack: (id, type, file) => ipcRenderer.invoke('packs:toggle', { id, type, file }),
+  removePack: (id, type, file) => ipcRenderer.invoke('packs:remove', { id, type, file }),
+  pickPacks: (id, folder) => ipcRenderer.invoke('packs:pick', { id, folder }),
+  addPacks: (id, paths) => ipcRenderer.invoke('packs:add', { id, paths }),
+  pathForFile: (file) => webUtils.getPathForFile(file),
   checkUpdate: call('update:check'),
   applyUpdate: call('update:apply'),
+  saveServer: call('servers:save'),
+  deleteServer: call('servers:delete'),
+  startServer: call('servers:start'),
+  stopServer: call('servers:stop'),
+  serverCommand: (id, text) => ipcRenderer.invoke('servers:command', { id, text }),
+  serverStatus: call('servers:status'),
+  openServerFolder: (id, sub) => ipcRenderer.invoke('servers:open', { id, sub }),
+  loadSkin: call('skin:load'),
+  saveSkin: call('skin:save'),
+  clearSkin: call('skin:clear'),
+  lookupSkin: call('skin:lookup'),
   on: (ch, fn) => ipcRenderer.on(ch, (_e, p) => fn(p)),
 });

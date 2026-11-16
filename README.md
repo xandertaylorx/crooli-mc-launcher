@@ -18,9 +18,12 @@ npm run dist:win   # .exe installer (best built on Windows)
 
 ## What it does
 
-- **Instances**: pick any Minecraft release/snapshot, Vanilla or Fabric, set RAM. Each instance has its own folder (worlds, mods, config).
-- **Downloads everything**: game, libraries, assets, and Mojang's own bundled Java — no Java install needed.
-- **Mods**: search Modrinth (filtered to your version + Fabric), one-click install with required dependencies (e.g. Fabric API), toggle/remove installed mods.
+- **Installations**: pick any Minecraft release or snapshot, Vanilla or Fabric, and set the memory. Each one has its own folder (worlds, mods, packs, settings).
+- **Downloads everything**: the game, libraries, assets and Mojang's own bundled Java. Press **Cancel** while it's getting files ready and everything that start downloaded is removed.
+- **Mods, resource packs and shaders**: search Modrinth filtered to your version, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders). Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.
+- **Servers**: create a Minecraft server (Vanilla or Fabric) with one click, start and stop it, run commands in the console, copy the address to share, and open its folders.
+- **Skins**: build a skin from six colours, load a PNG, or copy a player's. Because the account is offline, it's applied as a resource pack when the game starts.
+- **Updates**: checks GitHub on start and every 6 hours.
 - **Accounts**: offline mode only for now (singleplayer, LAN, offline-mode servers).
 
 Data lives in `~/Library/Application Support/CrooliLauncher` (mac) or `%APPDATA%\CrooliLauncher` (Windows).
@@ -30,7 +33,8 @@ Set `CROOLI_HOME=/some/dir` to use a different folder.
 
 - Microsoft login (needs an Azure app registration — client ID)
 - Forge / NeoForge / Quilt, modpacks, CurseForge
-- Skins, news feed, auto-update
+- Microsoft skins and capes
+- Server mods and plugins from the launcher (a Fabric server has a mods folder you can fill yourself)
 
 ## Website
 

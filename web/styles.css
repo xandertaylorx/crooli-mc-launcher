@@ -170,8 +170,8 @@ section[id] { scroll-margin-top: 96px; }
 .facts dd { margin-top: 6px; color: var(--dim); font-size: 15px; }
 
 /* ---------- 3. how it works ---------- */
-.how { max-width: var(--wide); margin: var(--section) auto 0; padding: 0 var(--side); }
-.how > .h2 { max-width: 14em; margin-bottom: clamp(56px, 7vw, 96px); }
+.how, .more { max-width: var(--wide); margin: var(--section) auto 0; padding: 0 var(--side); }
+.how > .h2, .more > .h2 { max-width: 14em; margin-bottom: clamp(56px, 7vw, 96px); }
 .step { display: grid; gap: 32px; }
 .step + .step { margin-top: clamp(80px, 10vw, 140px); }
 .step-text { max-width: var(--text); margin: 0 auto; text-align: center; }
@@ -193,12 +193,23 @@ section[id] { scroll-margin-top: 96px; }
 .sky-shot img { transition: opacity .35s ease; }
 .sky-shot img.fade { opacity: 0; }
 
-/* ---------- 4. included ---------- */
+/* ---------- 4. more: text beside the picture, alternating sides ---------- */
+.feature { display: grid; grid-template-columns: minmax(0, 0.8fr) minmax(0, 1.2fr); gap: clamp(32px, 5vw, 72px); align-items: center; }
+.feature + .feature { margin-top: clamp(72px, 9vw, 128px); }
+.feature.flip { grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr); }
+.feature.flip .feature-text { order: 2; }
+.feature-text h3 { font: 500 clamp(28px, 2.8vw, 40px)/1.08 var(--display); letter-spacing: -0.015em; text-wrap: balance; }
+.feature-text p { margin-top: 16px; max-width: 34em; color: var(--ink-2); font-size: 17px; }
+.feature-text code { padding: 1px 6px; border-radius: 6px; background: var(--tile); color: var(--ink); font-size: .88em; }
+.feature-art { padding: clamp(24px, 4vw, 56px) clamp(16px, 3vw, 48px); }
+.feature-art .shot { transition: transform .6s var(--ease); }
+
+/* ---------- 5. included ---------- */
 .included { max-width: 980px; margin: var(--section) auto 0; padding: 0 var(--side); text-align: center; }
 .included .lede { margin-top: 18px; }
 .chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 36px; }
 .chips li { font: 400 14px/1 var(--mono); color: var(--ink-2); background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); padding: 11px 14px; border-radius: 999px; }
-.extras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 32px; margin-top: 72px; text-align: left; }
+.extras { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 36px 32px; margin-top: 72px; text-align: left; }
 .extras li { padding-top: 18px; border-top: 1px solid var(--line); }
 .extras b { display: block; font: 500 19px/1.2 var(--display); letter-spacing: -0.01em; }
 .extras span { display: block; margin-top: 8px; color: var(--ink-2); font-size: 15px; }
@@ -257,6 +268,8 @@ section[id] { scroll-margin-top: 96px; }
 /* ---------- responsive ---------- */
 @media (max-width: 900px) {
   :root { --radius: 18px; }
+  .feature, .feature.flip { grid-template-columns: 1fr; gap: 28px; }
+  .feature.flip .feature-text { order: 0; }
   .facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .extras { grid-template-columns: 1fr; gap: 24px; margin-top: 56px; }
   .step-art { padding: 28px 16px; }

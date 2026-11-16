@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { getJson, downloadAll, dirs } = require('./util');
+const { getJson, downloadAll, dirs, track, checkCancel } = require('./util');
 
 const ALL = 'https://launchermeta.mojang.com/v1/products/java-runtime/2ec0cc96c44e5a76b9c8b7c39df7210883d12871/all.json';
 
@@ -44,9 +44,11 @@ async function ensureJava(component, onProgress) {
   }
   await downloadAll(tasks, onProgress);
   for (const l of links) {
-    try { fs.mkdirSync(path.dirname(l.dest), { recursive: true }); if (!fs.existsSync(l.dest)) fs.symlinkSync(l.target, l.dest); } catch {}
+    try { fs.mkdirSync(path.dirname(l.dest), { recursive: true }); if (!fs.existsSync(l.dest)) { fs.symlinkSync(l.target, l.dest); track(l.dest); } } catch {}
   }
+  checkCancel();
   fs.writeFileSync(done, 'ok');
+  track(done);
   const bin = javaBin(dir);
   if (!bin) throw new Error('Java downloaded but binary not found');
   return bin;

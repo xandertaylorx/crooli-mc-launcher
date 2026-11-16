@@ -2,7 +2,7 @@ const fs = require('fs');
 const path = require('path');
 const { root } = require('./util');
 
-const DEFAULTS = { username: 'Player', ram: 2048, selected: null, instances: [] };
+const DEFAULTS = { username: 'Player', ram: 2048, selected: null, instances: [], servers: [], selectedServer: null };
 const file = () => path.join(root(), 'launcher.json');
 
 function load() {

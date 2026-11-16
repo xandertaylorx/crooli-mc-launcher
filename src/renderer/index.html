@@ -13,6 +13,7 @@
       <button class="tab active" data-view="play">Play</button>
       <button class="tab" data-view="mods">Mods</button>
       <button class="tab" data-view="instances">Installations</button>
+      <button class="tab" data-view="servers">Servers</button>
       <button class="tab" data-view="settings">Settings</button>
     </nav>
     <label class="player" title="Change your player name">
@@ -58,25 +59,38 @@
       </div>
     </section>
 
-    <!-- MODS -->
+    <!-- MODS, RESOURCE PACKS, SHADERS -->
     <section id="view-mods" class="view page">
       <div class="page-head">
         <h1 id="mods-title">Mods</h1>
         <p id="mods-note" class="sub"></p>
       </div>
+      <div class="subtabs" id="kind-tabs" role="tablist">
+        <button class="subtab active" data-kind="mod" role="tab">Mods</button>
+        <button class="subtab" data-kind="resourcepack" role="tab">Resource packs</button>
+        <button class="subtab" data-kind="shader" role="tab">Shaders</button>
+        <span class="spacer"></span>
+        <button id="add-file" class="mc-btn small" type="button">Add a file</button>
+        <button id="add-folder" class="mc-btn small" type="button">Add a folder</button>
+      </div>
+      <div id="shader-hint" class="hint-bar" hidden>
+        <span>Shader packs need Iris, a Fabric mod, to run.</span>
+        <button id="install-iris" class="mc-btn small green" type="button">Install Iris</button>
+      </div>
       <div class="split">
         <div class="pane">
           <form id="mod-search" class="search">
-            <input id="mod-q" type="search" placeholder="Search Modrinth for mods" autocomplete="off">
+            <input id="mod-q" type="search" placeholder="Search Modrinth" autocomplete="off">
             <button class="mc-btn small" type="submit">Search</button>
           </form>
           <div id="mod-results" class="rows"></div>
         </div>
         <div class="pane side">
-          <h2>Installed</h2>
+          <h2 id="installed-title">Installed</h2>
           <div id="mod-installed" class="rows compact"></div>
         </div>
       </div>
+      <div id="drop-hint" class="drop-hint" hidden>Drop mods, resource packs or shader packs here</div>
     </section>
 
     <!-- INSTALLATIONS -->
@@ -107,6 +121,77 @@
       </div>
     </section>
 
+    <!-- SERVERS -->
+    <section id="view-servers" class="view page">
+      <div class="page-head">
+        <h1>Servers</h1>
+        <p class="sub">Run a Minecraft server on this computer for you and your friends.</p>
+      </div>
+      <div class="split">
+        <div class="pane srv-main">
+          <div id="srv-empty" class="empty" hidden>
+            <p>No servers yet. Make one and it'll download everything it needs.</p>
+            <button class="mc-btn green" type="button" data-new-server>New server</button>
+          </div>
+
+          <div id="srv-detail" class="srv-detail" hidden>
+            <div class="srv-head">
+              <div class="info"><h2 id="srv-name"></h2><p class="d" id="srv-meta"></p></div>
+              <span class="pill" id="srv-status"></span>
+              <button id="srv-toggle" class="mc-btn green" type="button">Start</button>
+            </div>
+            <div class="srv-addr" id="srv-addr"></div>
+            <div id="srv-log" class="console srv-log"></div>
+            <form id="srv-cmd" class="search srv-cmd">
+              <input id="srv-input" type="text" placeholder="Type a command, like op Steve or time set day" autocomplete="off" spellcheck="false">
+              <button class="mc-btn small" type="submit">Send</button>
+            </form>
+            <div class="srv-links">
+              <button class="link quiet" type="button" data-open="">Server folder</button>
+              <button class="link quiet" type="button" data-open="world">World folder</button>
+              <button class="link quiet" type="button" data-open="mods" id="srv-mods-link">Mods folder</button>
+              <span class="spacer"></span>
+              <button class="link quiet" type="button" id="srv-edit">Settings</button>
+              <button class="link quiet danger" type="button" id="srv-delete">Delete</button>
+            </div>
+          </div>
+
+          <form id="srv-form" class="form srv-form" hidden>
+            <h2 id="srv-form-title">New server</h2>
+            <div class="form-grid">
+              <label>Name<input id="sf-name" type="text" value="My Server" maxlength="40"></label>
+              <label>Version<select id="sf-version"></select></label>
+              <label>Type
+                <select id="sf-type"><option value="vanilla">Vanilla</option><option value="fabric">Fabric, for server mods</option></select>
+              </label>
+              <label>Memory
+                <select id="sf-ram"><option value="2048">2 GB</option><option value="4096" selected>4 GB</option><option value="6144">6 GB</option><option value="8192">8 GB</option></select>
+              </label>
+              <label>Game mode
+                <select id="sf-gamemode"><option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option></select>
+              </label>
+              <label>Difficulty
+                <select id="sf-difficulty"><option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal" selected>Normal</option><option value="hard">Hard</option></select>
+              </label>
+              <label>Port<input id="sf-port" type="number" min="1024" max="65535" value="25565"></label>
+            </div>
+            <label class="check"><input id="sf-offline" type="checkbox" checked>Let Crooli MC Launcher players join</label>
+            <p class="hint">Turns off Mojang’s account check, which offline players need. Only share the address with people you trust.</p>
+            <p class="hint" id="sf-eula">Creating a server means you agree to the <a href="https://aka.ms/MinecraftEULA" target="_blank" rel="noopener">Minecraft EULA</a>.</p>
+            <div class="form-actions">
+              <button class="mc-btn green" type="submit" id="sf-submit">Agree and create server</button>
+              <button class="link quiet" type="button" id="sf-cancel">Cancel</button>
+            </div>
+          </form>
+        </div>
+        <div class="pane side">
+          <h2>Your servers</h2>
+          <div id="srv-list" class="rows compact"></div>
+          <button class="mc-btn small srv-new" type="button" data-new-server>New server</button>
+        </div>
+      </div>
+    </section>
+
     <!-- SETTINGS -->
     <section id="view-settings" class="view page">
       <div class="page-head"><h1>Settings</h1></div>
@@ -115,6 +200,46 @@
         <label>Java path<input id="s-java" type="text" placeholder="Leave empty to use the Java Minecraft ships with"></label>
         <button class="mc-btn" type="submit">Save settings</button>
       </form>
+      <section class="skin" id="skin-card" aria-labelledby="skin-title">
+        <h2 id="skin-title">Skin</h2>
+        <p class="sub" id="skin-status"></p>
+        <div class="skin-body">
+          <canvas id="skin-view" width="288" height="256" aria-label="Skin preview, front and back"></canvas>
+          <div class="skin-controls">
+            <div class="subtabs" id="skin-tabs" role="tablist">
+              <button class="subtab active" data-skin="build" type="button" role="tab">Build one</button>
+              <button class="subtab" data-skin="file" type="button" role="tab">From a file</button>
+              <button class="subtab" data-skin="player" type="button" role="tab">From a player</button>
+            </div>
+            <div class="skin-pane colors" data-pane="build">
+              <label>Skin<input type="color" id="sk-tone" value="#c69c7c"></label>
+              <label>Hair<input type="color" id="sk-hair" value="#4a3220"></label>
+              <label>Eyes<input type="color" id="sk-eyes" value="#3f5fbf"></label>
+              <label>Shirt<input type="color" id="sk-shirt" value="#3aa6b3"></label>
+              <label>Trousers<input type="color" id="sk-pants" value="#3f3fa8"></label>
+              <label>Shoes<input type="color" id="sk-shoes" value="#5b5b5b"></label>
+            </div>
+            <div class="skin-pane" data-pane="file" hidden>
+              <label>A skin image (PNG, 64 by 64)<input type="file" id="skin-file" accept="image/png"></label>
+              <label>Arm style of that skin
+                <select id="skin-arms"><option value="classic">Classic, 4 pixels wide</option><option value="slim">Slim, 3 pixels wide</option></select>
+              </label>
+            </div>
+            <div class="skin-pane" data-pane="player" hidden>
+              <form id="skin-lookup-form" class="search">
+                <input id="skin-name" type="text" placeholder="A Minecraft player name" maxlength="16" autocomplete="off" spellcheck="false">
+                <button class="mc-btn small" type="submit">Copy their skin</button>
+              </form>
+              <p class="hint">Asks Mojang for that player’s skin, so you can start from one you already have.</p>
+            </div>
+            <div class="form-actions">
+              <button id="skin-apply" class="mc-btn green" type="button">Use this skin</button>
+              <button id="skin-reset" class="link quiet" type="button">Back to the default skin</button>
+            </div>
+            <p class="hint">You play offline, so Minecraft shows a default skin. This one replaces it through a resource pack added when the game starts. Only you see it, including on servers.</p>
+          </div>
+        </div>
+      </section>
       <div class="about">
         <p>Crooli MC Launcher <b id="s-version"></b><br><span id="s-update" class="sub"></span></p>
         <button id="btn-check" class="mc-btn small" type="button">Check for updates</button>
@@ -128,5 +253,6 @@
 
   <div id="toast" role="status"></div>
   <script src="app.js"></script>
+  <script src="skin-ui.js"></script>
 </body>
 </html>

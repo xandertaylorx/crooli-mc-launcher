@@ -4,10 +4,11 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Crooli MC Launcher: Minecraft with mods, minus the fuss</title>
-<meta name="description" content="A small Minecraft launcher for Mac and Windows. It downloads the game and Java for you and installs Fabric mods from Modrinth with everything they need. Free and open source." />
+<meta name="description" content="A small Minecraft launcher for Mac and Windows. It downloads the game and Java for you, installs Fabric mods, resource packs and shaders from Modrinth, and can run a server for your friends. Free and open source." />
 <meta name="theme-color" content="#f5f5f3" />
 <script>try{if(localStorage.getItem("crooli-launcher.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="assets/icon.png" />
 <meta property="og:title" content="Crooli MC Launcher" />
 <meta property="og:description" content="Minecraft with mods, minus the fuss. Free for Mac and Windows." />
 <meta property="og:image" content="assets/play-day.png" />
@@ -58,8 +59,8 @@
   <dl class="facts">
     <div><dt>26.3 → 1.0</dt><dd>Every release, snapshots too</dd></div>
     <div><dt>fabric</dt><dd>Mod loader, built in</dd></div>
-    <div><dt>modrinth</dt><dd>Mods in one click</dd></div>
-    <div><dt>java</dt><dd>Downloaded for you</dd></div>
+    <div><dt>modrinth</dt><dd>Mods, packs and shaders</dd></div>
+    <div><dt>servers</dt><dd>Host your own in a click</dd></div>
   </dl>
 
   <!-- 3. How it works: a real sequence, top to bottom -->
@@ -114,17 +115,64 @@
     </article>
   </section>
 
-  <!-- 4. What comes with it -->
+  <!-- 4. More: side by side, so the page doesn't read as one long list of steps -->
+  <section id="more" class="more">
+    <h2 class="h2 center">And a few things more.</h2>
+
+    <article class="feature">
+      <div class="feature-text">
+        <h3>Run a server for your friends.</h3>
+        <p>Pick a version and press Start. The launcher downloads Mojang’s server, agrees to the EULA when you create it, and gives you a console for commands like <code>op Steve</code> or <code>time set day</code>. Copy the address for this computer or your Wi-Fi, and open the world or mods folder whenever you like.</p>
+      </div>
+      <div class="feature-art panel">
+        <canvas class="shader" data-mode="silk" data-palette="grass" aria-hidden="true"></canvas>
+        <figure class="shot">
+          <img src="assets/servers.png" width="2160" height="1384" loading="lazy" alt="The Servers screen: a running server called Friends SMP, its join addresses, a live console and a command box" />
+        </figure>
+      </div>
+    </article>
+
+    <article class="feature flip">
+      <div class="feature-text">
+        <h3>Resource packs and shaders, as easy as mods.</h3>
+        <p>Search Modrinth for packs and shaders that fit your version, and one click installs and turns them on. Shaders run on Iris, which the launcher installs for you the first time. Already downloaded something? Drop the file or folder on the window and it works out what it is.</p>
+      </div>
+      <div class="feature-art panel">
+        <canvas class="shader" data-mode="fluted" data-palette="sky" aria-hidden="true"></canvas>
+        <figure class="shot">
+          <img src="assets/packs.png" width="2160" height="1384" loading="lazy" alt="The Resource packs tab: search results from Modrinth and a list of installed packs, one in use" />
+        </figure>
+      </div>
+    </article>
+
+    <article class="feature">
+      <div class="feature-text">
+        <h3>Your own skin.</h3>
+        <p>Playing offline means Minecraft shows a default skin. Build one from six colours, load a PNG, or copy a skin from any player name. It’s added as a resource pack when the game starts, so it works in singleplayer and on servers.</p>
+      </div>
+      <div class="feature-art panel">
+        <canvas class="shader" data-mode="silk" data-palette="dirt" aria-hidden="true"></canvas>
+        <figure class="shot">
+          <img src="assets/skin.png" width="2160" height="1384" loading="lazy" alt="The skin editor in Settings: a preview of a character from the front and back, and six colour pickers" />
+        </figure>
+      </div>
+    </article>
+  </section>
+
+  <!-- 5. What comes with it -->
   <section class="included">
     <h2 class="h2 center">Nothing else to install.</h2>
     <p class="lede center">The launcher fetches all of this itself and checks every file it downloads.</p>
     <ul class="chips">
-      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Fabric loader</li><li>Log4j fix</li><li>Mod dependencies</li>
+      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Fabric loader</li><li>Log4j fix</li><li>Mod dependencies</li><li>Server jars</li><li>Iris for shaders</li>
     </ul>
     <ul class="extras">
+      <li><b>Cancel any time</b><span>Changed your mind while it downloads? Press Cancel and everything it fetched for that start is removed.</span></li>
+      <li><b>Updates itself</b><span>Checks GitHub for a new version and tells you. On Windows it installs after a restart.</span></li>
       <li><b>Game output</b><span>A side panel shows what the game is doing, in plain lines.</span></li>
       <li><b>Update notes</b><span>Mojang’s latest snapshot and release posts, on the Play screen.</span></li>
-      <li><b>Your files</b><span>Every installation is a normal folder you can open and back up.</span></li>
+      <li><b>Your files</b><span>Every installation and server is a normal folder you can open and back up.</span></li>
+      <li><b>Safe downloads</b><span>Every file is checked against its checksum before it’s used.</span></li>
     </ul>
   </section>
 

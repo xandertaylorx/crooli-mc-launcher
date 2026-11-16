@@ -1,13 +1,20 @@
-const fs = require('fs');
 const path = require('path');
-const { getJson, downloadFile, UA } = require('./util');
+const { getJson, downloadFile } = require('./util');
+const { dirFor } = require('./packs');
 
 const API = 'https://api.modrinth.com/v2';
 const q = o => encodeURIComponent(JSON.stringify(o));
+const TYPES = ['mod', 'resourcepack', 'shader'];
 
-// Search mods compatible with a game version + loader. Empty query = most downloaded.
-async function search({ query = '', mc, loader = 'fabric', offset = 0 }) {
-  const facets = [['project_type:mod'], [`categories:${loader}`]];
+// Search Modrinth for something that works with a game version. Empty query = most downloaded.
+//   mod:          Fabric mods for the version
+//   resourcepack: packs for the version
+//   shader:       packs that Iris can load
+async function search({ query = '', mc, loader = 'fabric', type = 'mod', offset = 0 }) {
+  if (!TYPES.includes(type)) throw new Error('Unknown type');
+  const facets = [[`project_type:${type}`]];
+  if (type === 'mod') facets.push([`categories:${loader}`]);
+  if (type === 'shader') facets.push(['categories:iris']);
   if (mc) facets.push([`versions:${mc}`]);
   const url = `${API}/search?query=${encodeURIComponent(query)}&facets=${q(facets)}&limit=20&offset=${offset}&index=${query ? 'relevance' : 'downloads'}`;
   const r = await getJson(url);
@@ -20,49 +27,37 @@ async function search({ query = '', mc, loader = 'fabric', offset = 0 }) {
   };
 }
 
-async function latestVersion(projectId, mc, loader) {
-  const vs = await getJson(`${API}/project/${projectId}/version?loaders=${q([loader])}&game_versions=${q([mc])}`);
-  return vs[0] || null;
+// Newest build for this game version. Resource packs and shaders are loose about versions, so if nothing is
+// marked for this exact version the newest one is used and the caller is told.
+async function latestVersion(projectId, mc, loader, type) {
+  const loaders = type === 'mod' ? `&loaders=${q([loader])}` : '';
+  let vs = await getJson(`${API}/project/${projectId}/version?game_versions=${q([mc])}${loaders}`);
+  if (type === 'shader') vs = [...vs.filter(v => (v.loaders || []).includes('iris')), ...vs.filter(v => !(v.loaders || []).includes('iris'))];
+  if (vs[0]) return { version: vs[0], exact: true };
+  if (type === 'mod') return null;
+  const any = await getJson(`${API}/project/${projectId}/version`);
+  return any[0] ? { version: any[0], exact: false } : null;
 }
 
-function modsDir(instDir) { return path.join(instDir, 'mods'); }
-
-function listInstalled(instDir) {
-  const d = modsDir(instDir);
-  if (!fs.existsSync(d)) return [];
-  return fs.readdirSync(d).filter(f => f.endsWith('.jar') || f.endsWith('.jar.disabled')).map(f => ({
-    file: f, enabled: f.endsWith('.jar'), size: fs.statSync(path.join(d, f)).size,
-  }));
-}
-
-function remove(instDir, file) {
-  const p = path.join(modsDir(instDir), path.basename(file)); // basename: no path traversal
-  if (fs.existsSync(p)) fs.unlinkSync(p);
-}
-
-function toggle(instDir, file) {
-  const d = modsDir(instDir), b = path.basename(file);
-  const from = path.join(d, b);
-  const to = b.endsWith('.disabled') ? path.join(d, b.slice(0, -9)) : from + '.disabled';
-  fs.renameSync(from, to);
-}
-
-// Install a mod and its required dependencies. Returns installed file names.
-async function install(instDir, projectId, mc, loader, _seen = new Set()) {
-  if (_seen.has(projectId)) return [];
+// Install something and, for mods, the mods it requires. Returns { files, exact }.
+async function install(instDir, projectId, mc, loader, type = 'mod', _seen = new Set()) {
+  if (_seen.has(projectId)) return { files: [], exact: true };
   _seen.add(projectId);
-  const v = await latestVersion(projectId, mc, loader);
-  if (!v) throw new Error(`No ${loader} build for Minecraft ${mc} found for that mod`);
+  const found = await latestVersion(projectId, mc, loader, type);
+  if (!found) throw new Error(`No ${type === 'mod' ? loader + ' ' : ''}build for Minecraft ${mc} found`);
+  const v = found.version;
   const file = v.files.find(f => f.primary) || v.files[0];
-  const dest = path.join(modsDir(instDir), path.basename(file.filename));
+  const dest = path.join(dirFor(instDir, type), path.basename(file.filename));
   await downloadFile(file.url, dest, { sha1: file.hashes && file.hashes.sha1, size: file.size });
   const done = [file.filename];
-  for (const dep of v.dependencies || []) {
-    if (dep.dependency_type === 'required' && dep.project_id) {
-      try { done.push(...await install(instDir, dep.project_id, mc, loader, _seen)); } catch (e) { done.push(`(dependency failed: ${e.message})`); }
+  if (type === 'mod') {
+    for (const dep of v.dependencies || []) {
+      if (dep.dependency_type === 'required' && dep.project_id) {
+        try { done.push(...(await install(instDir, dep.project_id, mc, loader, 'mod', _seen)).files); } catch (e) { done.push(`(dependency failed: ${e.message})`); }
+      }
     }
   }
-  return done;
+  return { files: done, exact: found.exact };
 }
 
-module.exports = { search, install, listInstalled, remove, toggle };
+module.exports = { search, install };

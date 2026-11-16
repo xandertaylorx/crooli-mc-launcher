@@ -23,8 +23,8 @@ document.querySelectorAll('.display, .h2').forEach((h) => {
 setTimeout(() => $('.intro .display')?.classList.add('in'), 60)
 
 /* ---------------- reveal on scroll ---------------- */
-const clipped = '.step-art'
-const revealables = document.querySelectorAll(`${clipped}, .split-lines:not(.intro .display), .facts, .step-text, .included > :not(.h2), .get > :not(.display)`)
+const clipped = '.step-art, .feature-art'
+const revealables = document.querySelectorAll(`${clipped}, .split-lines:not(.intro .display), .facts, .step-text, .feature-text, .included > :not(.h2), .get > :not(.display)`)
 const rio = new IntersectionObserver(
   (entries) => {
     for (const e of entries) {
@@ -148,7 +148,7 @@ setSky(hr < 5 || hr >= 21 ? 'night' : hr >= 18 ? 'dusk' : 'day', false)
 
 /* ---------------- screenshots tilt toward the pointer ---------------- */
 if (!reduceMotion && matchMedia('(hover: hover)').matches) {
-  document.querySelectorAll('.step-art').forEach((art) => {
+  document.querySelectorAll('.step-art, .feature-art').forEach((art) => {
     const win = art.querySelector('.shot')
     art.addEventListener('pointermove', (e) => {
       const r = art.getBoundingClientRect()

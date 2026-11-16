@@ -1,6 +1,6 @@
 const fs = require('fs');
 const path = require('path');
-const { getJson, downloadFile, downloadAll, dirs, OS, ARCH } = require('./util');
+const { getJson, downloadFile, downloadAll, dirs, OS, ARCH, track, checkCancel } = require('./util');
 
 const MANIFEST = 'https://piston-meta.mojang.com/mc/game/version_manifest_v2.json';
 const FABRIC_META = 'https://meta.fabricmc.net/v2';
@@ -58,6 +58,7 @@ async function getFabricProfile(mcVersion, loaderVersion) {
   const prof = await getJson(`${FABRIC_META}/versions/loader/${mcVersion}/${lv}/profile/json`);
   fs.mkdirSync(path.dirname(file), { recursive: true });
   fs.writeFileSync(file, JSON.stringify(prof));
+  track(file);
   return prof;
 }
 
@@ -132,7 +133,8 @@ async function ensureAssets(vj, onProgress) {
     for (const [name, o] of Object.entries(index.objects)) {
       const src = path.join(dirs.assets(), 'objects', o.hash.slice(0, 2), o.hash);
       const dst = path.join(vroot, name);
-      if (!fs.existsSync(dst)) { fs.mkdirSync(path.dirname(dst), { recursive: true }); fs.copyFileSync(src, dst); }
+      checkCancel();
+      if (!fs.existsSync(dst)) { fs.mkdirSync(path.dirname(dst), { recursive: true }); fs.copyFileSync(src, dst); track(dst); }
     }
     assetsRoot = vroot;
   }

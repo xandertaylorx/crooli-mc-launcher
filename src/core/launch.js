@@ -3,9 +3,10 @@ const path = require('path');
 const crypto = require('crypto');
 const { spawn } = require('child_process');
 const AdmZip = require('adm-zip');
-const { downloadFile, downloadAll, dirs } = require('./util');
+const { downloadFile, downloadAll, dirs, track, checkCancel } = require('./util');
 const V = require('./versions');
 const { ensureJava } = require('./java');
+const skin = require('./skin');
 
 let manifestCache = null;
 async function manifest() { return manifestCache || (manifestCache = await V.listVersions()); }
@@ -36,7 +37,9 @@ function extractNatives(natives, dir) {
     for (const e of zip.getEntries()) {
       if (e.isDirectory || e.entryName.startsWith('META-INF')) continue;
       if (n.exclude.some(x => e.entryName.startsWith(x))) continue;
-      fs.writeFileSync(path.join(dir, path.basename(e.entryName)), e.getData());
+      const out = path.join(dir, path.basename(e.entryName));
+      fs.writeFileSync(out, e.getData());
+      track(out);
     }
   }
 }
@@ -56,6 +59,7 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
 
   // client jar
   const jar = path.join(dirs.versions(), inst.mc, `${inst.mc}.jar`);
+  checkCancel();
   stage('Downloading Minecraft…');
   const c = vanilla.downloads.client;
   await downloadFile(c.url, jar, { sha1: c.sha1, size: c.size });
@@ -66,6 +70,7 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
   const nativesDir = path.join(dirs.versions(), vj.id, 'natives');
   if (libs.natives.length) extractNatives(libs.natives, nativesDir);
 
+  checkCancel();
   // assets
   stage('Checking assets…');
   const assets = await V.ensureAssets(vj, (d, t) => stage('Downloading assets…', d, t));
@@ -79,14 +84,18 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
     logArg = lc.argument.replace('${path}', f);
   }
 
+  checkCancel();
   // java
   stage('Preparing Java…');
   const component = (vj.javaVersion && vj.javaVersion.component) || 'jre-legacy';
   const java = javaOverride || await ensureJava(component, (d, t) => stage('Downloading Java…', d, t));
 
+  checkCancel();
   // arguments
   const gameDir = path.join(dirs.instances(), inst.id);
   fs.mkdirSync(gameDir, { recursive: true });
+  // Put the player's skin in place (or take it out), right before the game reads its settings.
+  try { skin.apply(gameDir, jar, inst.mc); } catch (e) { emit('log', `Couldn't set up the skin: ${e.message}`); }
   const cp = [...libs.classpath, jar];
   const vars = {
     auth_player_name: account.name,

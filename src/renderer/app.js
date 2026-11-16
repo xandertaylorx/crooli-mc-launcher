@@ -143,6 +143,7 @@ function show(view) {
   document.querySelectorAll('.tab').forEach(b => b.classList.toggle('active', b.dataset.view === view));
   document.querySelectorAll('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + view));
   if (view === 'mods') refreshMods();
+  if (view === 'servers') selectServer();
   if (view === 'play') requestAnimationFrame(sizeScene);
 }
 document.querySelectorAll('.tab').forEach(b => b.onclick = () => show(b.dataset.view));
@@ -165,7 +166,7 @@ async function render() {
     $('#play-title').textContent = i.name;
     let sub = `${loaderName(i)} ${i.mc} with ${gb(i.ram)} of memory`;
     if (i.loader === 'fabric') {
-      const n = (await api.listMods(i.id)).filter(m => m.enabled).length;
+      const n = (await api.listPacks(i.id, 'mod')).filter(m => m.enabled).length;
       sub = `Fabric ${i.mc}, ${n === 0 ? 'no mods yet' : n === 1 ? '1 mod' : n + ' mods'}, ${gb(i.ram)} of memory`;
     }
     $('#play-sub').textContent = sub;
@@ -177,11 +178,13 @@ async function render() {
 function renderPlayButton() {
   const b = $('#btn-play'), i = inst();
   const [l1, l2] = !i ? ['Get started', 'Create an installation']
-    : state === 'preparing' ? ['Starting', 'Getting files ready']
+    : state === 'preparing' ? ['Cancel', 'Stop and remove what it downloaded']
+    : state === 'cancelling' ? ['Cancelling', 'Cleaning up…']
     : state === 'running' ? ['Playing', `Minecraft ${i.mc} is running`]
     : ['Play', `Minecraft ${i.mc}${i.loader === 'fabric' ? ' with Fabric' : ''}`];
   b.querySelector('.l1').textContent = l1; $('#play-l2').textContent = l2;
-  b.disabled = state !== 'idle';
+  b.disabled = state === 'running' || state === 'cancelling';
+  b.classList.toggle('cancel', state === 'preparing');
 }
 
 function renderInstances() {
@@ -261,10 +264,12 @@ function log(raw) {
 async function launch() {
   const i = inst();
   if (!i) { show('instances'); $('#f-name').focus(); return; }
+  if (state === 'preparing') { await api.cancelLaunch(); return; }
   if (state !== 'idle') return;
   $('#log').textContent = '';
   const r = await api.launch(i.id);
-  if (r && r.error) { toast(r.error); log('Error: ' + r.error); $('#log-drawer').hidden = false; }
+  if (r && r.cancelled) toast('Cancelled. What it had downloaded was removed.');
+  else if (r && r.error) { toast(r.error); log('Error: ' + r.error); $('#log-drawer').hidden = false; }
 }
 $('#btn-play').onclick = launch;
 $('#btn-folder').onclick = () => inst() && api.openInstance(inst().id);
@@ -280,7 +285,7 @@ api.on('game:progress', ({ label, done, total }) => {
 });
 api.on('game:state', st => {
   state = st;
-  if (st !== 'preparing') $('#progress').hidden = true;
+  if (st !== 'preparing' && st !== 'cancelling') $('#progress').hidden = true;
   renderPlayButton(); renderInstances();
 });
 
@@ -294,57 +299,102 @@ async function loadNews() {
     h('div', {}, h('b', { textContent: n.title }), h('span', { textContent: fmt.format(new Date(n.date)) })))));
 }
 
-// ================= mods =================
-let searchSeq = 0;
+// ================= mods, resource packs, shaders =================
+const KIND = {
+  mod:          { title: 'Mods',           one: 'mod',           search: 'Search Modrinth for mods',           installed: 'Installed mods' },
+  resourcepack: { title: 'Resource packs', one: 'resource pack', search: 'Search Modrinth for resource packs', installed: 'Installed packs' },
+  shader:       { title: 'Shaders',        one: 'shader pack',   search: 'Search Modrinth for shader packs',   installed: 'Installed shaders' },
+};
+let kind = 'mod', searchSeq = 0, installedList = [];
+
+function noteFor(i) {
+  if (kind === 'mod') return `Showing Fabric mods that work with Minecraft ${i.mc}, from Modrinth. Required mods are installed for you.`;
+  if (kind === 'resourcepack') return `Showing resource packs for Minecraft ${i.mc}. Installing one turns it on.`;
+  return `Showing shader packs for Minecraft ${i.mc} that Iris can load. Installing one turns it on.`;
+}
+
 async function refreshMods() {
-  const i = inst(), note = $('#mods-note');
-  $('#mods-title').textContent = i ? `Mods for ${i.name}` : 'Mods';
-  $('#mod-search').hidden = false;
-  if (!i || i.loader !== 'fabric') {
-    note.textContent = !i ? 'Create an installation first.' : `${i.name} is Vanilla, so it can't load mods. Make a Fabric installation to add mods.`;
-    $('#mod-search').hidden = true;
-    const go = h('button', { className: 'mc-btn green', textContent: 'New Fabric installation' });
+  const i = inst();
+  document.querySelectorAll('#kind-tabs .subtab').forEach((b) => b.classList.toggle('active', b.dataset.kind === kind));
+  $('#mods-title').textContent = i ? `${KIND[kind].title} for ${i.name}` : KIND[kind].title;
+  $('#installed-title').textContent = KIND[kind].installed;
+  $('#mod-q').placeholder = KIND[kind].search;
+  $('#add-file').disabled = $('#add-folder').disabled = !i;
+  $('#shader-hint').hidden = true;
+  const blocked = !i || (kind !== 'resourcepack' && i.loader !== 'fabric');
+  $('#mod-search').hidden = blocked;
+  if (blocked) {
+    $('#mods-note').textContent = !i ? 'Create an installation first.'
+      : kind === 'mod' ? `${i.name} is Vanilla, so it can't load mods. Make a Fabric installation to add mods.`
+      : `Shader packs run through Iris, a Fabric mod, so ${i.name} needs to be a Fabric installation.`;
+    const go = h('button', { className: 'mc-btn green', textContent: i ? 'New Fabric installation' : 'New installation' });
     go.onclick = () => { show('instances'); $('#f-loader').value = 'fabric'; $('#f-name').focus(); };
     $('#mod-results').replaceChildren(h('div', { className: 'empty' }, go));
     $('#mod-installed').replaceChildren();
+    if (i) renderInstalled(await api.listPacks(i.id, kind));
     return;
   }
-  note.textContent = `Showing Fabric mods that work with Minecraft ${i.mc}, from Modrinth. Required mods are installed for you.`;
-  renderInstalled(await api.listMods(i.id));
+  $('#mods-note').textContent = noteFor(i);
+  renderInstalled(await api.listPacks(i.id, kind));
+  if (kind === 'shader') {
+    const mods = await api.listPacks(i.id, 'mod');
+    $('#shader-hint').hidden = mods.some((m) => /iris/i.test(m.file) && m.enabled);
+  }
   runSearch();
 }
+
+const kindLabel = (f) => f.file.replace(/\.jar(\.disabled)?$/, '').replace(/\.zip$/i, '');
 function renderInstalled(files) {
+  installedList = files;
   const box = $('#mod-installed'); box.replaceChildren();
-  if (!files.length) return box.append(h('div', { className: 'empty', textContent: 'No mods yet. Install some from the list.' }));
-  files.forEach(f => {
-    const toggle = h('button', { className: 'link quiet', textContent: f.enabled ? 'Turn off' : 'Turn on' });
-    toggle.onclick = async () => renderInstalled(await api.toggleMod(inst().id, f.file));
+  if (!files.length) return box.append(h('div', { className: 'empty', textContent: kind === 'mod' ? 'No mods yet. Install some from the list, or add your own.' : `No ${KIND[kind].one}s yet.` }));
+  const on = kind === 'mod' ? ['Turn off', 'Turn on'] : ['Turn off', 'Use'];
+  files.forEach((f) => {
+    const toggle = h('button', { className: 'link quiet', textContent: f.enabled ? on[0] : on[1] });
+    toggle.onclick = async () => {
+      const r = await api.togglePack(inst().id, kind, f.file);
+      if (r.error) return toast(r.error);
+      renderInstalled(r.list);
+    };
     const rm = h('button', { className: 'link quiet danger', textContent: 'Remove' });
-    rm.onclick = async () => renderInstalled(await api.removeMod(inst().id, f.file));
-    box.append(h('div', { className: 'row' + (f.enabled ? '' : ' off') },
-      h('div', { className: 'info' }, h('div', { className: 't', textContent: f.file.replace(/\.jar(\.disabled)?$/, ''), title: f.file })),
+    rm.onclick = async () => {
+      const r = await api.removePack(inst().id, kind, f.file);
+      if (r.error) return toast(r.error);
+      renderInstalled(r.list);
+    };
+    box.append(h('div', { className: 'row' + (f.enabled || kind !== 'mod' ? '' : ' off') },
+      h('div', { className: 'info' }, h('div', { className: 't', title: f.file, textContent: kindLabel(f) }), kind !== 'mod' ? h('div', { className: 'd', textContent: f.enabled ? 'In use' : 'Not in use' }) : null),
       h('div', { className: 'acts' }, toggle, rm)));
   });
 }
+
 async function runSearch() {
-  const i = inst(); if (!i || i.loader !== 'fabric') return;
+  const i = inst(); if (!i) return;
   const seq = ++searchSeq, box = $('#mod-results');
   box.replaceChildren(h('div', { className: 'empty', textContent: 'Searching Modrinth…' }));
-  const r = await api.searchMods({ query: $('#mod-q').value.trim(), mc: i.mc, loader: i.loader });
+  const r = await api.searchPacks({ query: $('#mod-q').value.trim(), mc: i.mc, loader: i.loader, type: kind });
   if (seq !== searchSeq) return;
   box.replaceChildren();
   if (r.error) return box.append(h('div', { className: 'empty', textContent: `Couldn't reach Modrinth. Check your connection and search again.` }));
-  if (!r.hits.length) return box.append(h('div', { className: 'empty', textContent: `No mods match that for Minecraft ${i.mc}. Try a different word.` }));
+  if (!r.hits.length) return box.append(h('div', { className: 'empty', textContent: `Nothing matches that for Minecraft ${i.mc}. Try a different word.` }));
   const nf = new Intl.NumberFormat(undefined, { notation: 'compact' });
-  r.hits.forEach(m => {
+  r.hits.forEach((m) => {
     const btn = h('button', { className: 'mc-btn small green', textContent: 'Install' });
     btn.onclick = async () => {
       btn.disabled = true; btn.textContent = 'Installing…';
-      const res = await api.installMod(i.id, m.id);
+      const res = await api.installPack(i.id, m.id, kind);
       if (res.error) { toast(res.error); btn.disabled = false; btn.textContent = 'Install'; return; }
       btn.textContent = 'Installed';
-      toast(res.files.length > 1 ? `Installed ${m.title} and ${res.files.length - 1} required mod${res.files.length > 2 ? 's' : ''}` : `Installed ${m.title}`);
-      renderInstalled(await api.listMods(i.id));
+      if (kind === 'mod') toast(res.files.length > 1 ? `Installed ${m.title} and ${res.files.length - 1} required mod${res.files.length > 2 ? 's' : ''}` : `Installed ${m.title}`);
+      else {
+        // Turn it on straight away, as the "easy install" promise says.
+        const file = res.files[0];
+        const t = await api.togglePack(i.id, kind, file);
+        const on = !t.error && (t.list.find((x) => x.file === file) || {}).enabled;
+        toast(`${on ? 'Installed and turned on' : 'Installed'} ${m.title}${res.exact ? '' : '. It isn’t marked for this version, so it may look off'}`);
+        if (!t.error) return renderInstalled(t.list);
+      }
+      renderInstalled(await api.listPacks(i.id, kind));
     };
     box.append(h('div', { className: 'row' },
       m.icon ? h('img', { src: m.icon, alt: '' }) : h('div', { className: 'ph' }),
@@ -355,7 +405,205 @@ async function runSearch() {
       h('div', { className: 'acts' }, btn)));
   });
 }
-$('#mod-search').onsubmit = e => { e.preventDefault(); runSearch(); };
+$('#mod-search').onsubmit = (e) => { e.preventDefault(); runSearch(); };
+document.querySelectorAll('#kind-tabs .subtab').forEach((b) => (b.onclick = () => { kind = b.dataset.kind; $('#mod-q').value = ''; refreshMods(); }));
+
+// Iris is what runs shader packs on Fabric. This installs it with Sodium, which it needs.
+$('#install-iris').onclick = async () => {
+  const i = inst(), b = $('#install-iris'); if (!i) return;
+  b.disabled = true; b.textContent = 'Installing…';
+  const r = await api.searchPacks({ query: 'iris shaders', mc: i.mc, loader: i.loader, type: 'mod' });
+  const iris = r.hits && r.hits.find((x) => x.slug === 'iris');
+  const res = iris ? await api.installPack(i.id, iris.id, 'mod') : { error: `Iris isn't out for Minecraft ${i.mc} yet.` };
+  b.disabled = false; b.textContent = 'Install Iris';
+  if (res.error) return toast(res.error);
+  toast('Installed Iris and what it needs');
+  refreshMods();
+};
+
+// ---- adding things from the computer: buttons, and dragging files onto the window ----
+function reportAdded(r) {
+  if (r.error) return toast(r.error);
+  const good = r.results.filter((x) => !x.error), bad = r.results.filter((x) => x.error);
+  const names = { mod: 'a mod', resourcepack: 'a resource pack', shader: 'a shader pack' };
+  if (good.length) toast(good.length === 1 ? `Added ${good[0].name} as ${names[good[0].kind]}${good[0].warn ? '. ' + good[0].warn : ''}` : `Added ${good.length} items`);
+  if (bad.length) setTimeout(() => toast(`${bad[0].name}: ${bad[0].error}`), good.length ? 2600 : 0);
+  // Jump to the tab of whatever was just added.
+  if (good.length) kind = good[0].kind;
+  refreshMods();
+}
+$('#add-file').onclick = async () => { const r = await api.pickPacks(inst().id, false); if (!r.canceled) reportAdded(r); };
+$('#add-folder').onclick = async () => { const r = await api.pickPacks(inst().id, true); if (!r.canceled) reportAdded(r); };
+let dragDepth = 0;
+const droppable = (e) => $('#view-mods').classList.contains('active') && e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+addEventListener('dragenter', (e) => { if (droppable(e)) { dragDepth++; $('#drop-hint').hidden = false; } });
+addEventListener('dragleave', (e) => { if (droppable(e) && --dragDepth <= 0) { dragDepth = 0; $('#drop-hint').hidden = true; } });
+addEventListener('dragover', (e) => { if (droppable(e)) e.preventDefault(); });
+addEventListener('drop', async (e) => {
+  if (!droppable(e)) return;
+  e.preventDefault(); dragDepth = 0; $('#drop-hint').hidden = true;
+  const paths = [...e.dataTransfer.files].map((f) => api.pathForFile(f)).filter(Boolean);
+  if (inst() && paths.length) reportAdded(await api.addPacks(inst().id, paths));
+});
+
+// ================= servers =================
+const srvStates = {};            // id -> { state, players }
+let srvEditing = null;           // server being edited, or 'new'
+const srvList = () => (S && S.servers) || [];
+const srvSel = () => srvList().find((x) => x.id === S.selectedServer) || srvList()[0] || null;
+const STATE_TEXT = { stopped: 'Stopped', preparing: 'Getting ready', starting: 'Starting', running: 'Running', stopping: 'Stopping' };
+
+// The console follows new output unless you've scrolled up to read something.
+let srvFollow = true;
+$('#srv-log').addEventListener('wheel', () => setTimeout(() => {
+  const el = $('#srv-log');
+  srvFollow = el.scrollTop + el.clientHeight >= el.scrollHeight - 40;
+}, 50), { passive: true });
+function srvLogLine(line) {
+  const el = $('#srv-log');
+  const cls = line.startsWith('»') ? 'sys' : line.startsWith('> ') ? 'me' : /\bERROR\b|\/ERROR\]|Exception/.test(line) ? 'err' : /\bWARN\b|\/WARN\]/.test(line) ? 'warn' : '';
+  el.append(h('div', { className: cls, textContent: line }));
+  while (el.childNodes.length > 800) el.firstChild.remove();
+  if (srvFollow) el.scrollTop = el.scrollHeight;
+}
+
+function renderSrvList() {
+  const box = $('#srv-list'); box.replaceChildren();
+  const sel = srvSel();
+  if (!srvList().length) box.append(h('div', { className: 'empty', textContent: 'None yet.' }));
+  srvList().forEach((x) => {
+    const st = (srvStates[x.id] || {}).state || 'stopped';
+    box.append(h('div', { className: 'row clickable' + (sel && x.id === sel.id && !srvEditing ? ' sel' : ''), onclick: () => selectServer(x.id) },
+      h('div', { className: 'info' },
+        h('div', { className: 't' }, h('span', { className: 'dot ' + st }), x.name),
+        h('div', { className: 'd', textContent: `${x.type === 'fabric' ? 'Fabric' : 'Vanilla'} ${x.mc}, ${STATE_TEXT[st].toLowerCase()}` }))));
+  });
+}
+
+function renderSrvDetail(addr) {
+  const sel = srvSel();
+  $('#srv-form').hidden = !srvEditing;
+  $('#srv-empty').hidden = !!srvEditing || !!sel;
+  $('#srv-detail').hidden = !!srvEditing || !sel;
+  if (srvEditing || !sel) return;
+  const st = srvStates[sel.id] || { state: 'stopped', players: [] };
+  $('#srv-name').textContent = sel.name;
+  $('#srv-meta').textContent = `${sel.type === 'fabric' ? 'Fabric' : 'Vanilla'} ${sel.mc}, ${gb(sel.ram)} of memory, ${sel.gamemode}, ${sel.difficulty}` +
+    (st.state === 'running' ? `. ${st.players.length === 1 ? '1 player' : st.players.length + ' players'} online` : '');
+  const pill = $('#srv-status'); pill.className = 'pill ' + st.state; pill.textContent = STATE_TEXT[st.state];
+  const t = $('#srv-toggle');
+  const busy = ['preparing', 'starting', 'stopping'].includes(st.state);
+  t.textContent = st.state === 'stopped' ? 'Start' : st.state === 'stopping' ? 'Stopping…' : 'Stop';
+  t.className = 'mc-btn ' + (st.state === 'stopped' ? 'green' : 'danger');
+  t.disabled = st.state === 'stopping' || st.state === 'preparing';
+  $('#srv-input').disabled = st.state !== 'running' && st.state !== 'starting';
+  $('#srv-mods-link').hidden = sel.type !== 'fabric';
+  $('#srv-delete').disabled = busy;
+  if (st.state !== 'running') $('#srv-addr').replaceChildren();
+  else if (addr) {
+    const a = $('#srv-addr'); a.replaceChildren();
+    {
+      const chip = (label, value) => {
+        const b = h('button', { type: 'button', textContent: 'Copy' });
+        b.onclick = () => { navigator.clipboard.writeText(value); b.textContent = 'Copied'; setTimeout(() => (b.textContent = 'Copy'), 1500); };
+        return h('span', { className: 'addr' }, `${label} `, h('code', { textContent: value }), b);
+      };
+      a.append(chip('This computer', addr.local));
+      (addr.lan || []).forEach((x) => a.append(chip('Same Wi-Fi', x)));
+    }
+  }
+}
+
+async function selectServer(id) {
+  srvEditing = null;
+  if (id) S = await api.saveSettings({ selectedServer: id });
+  const sel = srvSel();
+  $('#srv-log').replaceChildren(); srvFollow = true;
+  if (sel) {
+    const st = await api.serverStatus(sel.id);
+    srvStates[sel.id] = { state: st.state, players: st.players };
+    st.log.forEach(srvLogLine);
+    renderSrvDetail(st);
+  } else renderSrvDetail();
+  renderSrvList();
+}
+
+function openServerForm(srv) {
+  srvEditing = srv ? srv.id : 'new';
+  const vs = $('#sf-version'); vs.replaceChildren();
+  versions.filter((v) => v.type === 'release').forEach((v) => vs.append(h('option', { value: v.id, textContent: v.id })));
+  $('#sf-name').value = srv ? srv.name : srvList().length ? `Server ${srvList().length + 1}` : 'My Server';
+  vs.value = srv ? srv.mc : (versions.find((v) => v.type === 'release') || {}).id;
+  $('#sf-type').value = srv ? srv.type : 'vanilla';
+  $('#sf-ram').value = String(srv ? srv.ram : 4096);
+  $('#sf-gamemode').value = srv ? srv.gamemode : 'survival';
+  $('#sf-difficulty').value = srv ? srv.difficulty : 'normal';
+  $('#sf-port').value = srv ? srv.port : 25565 + srvList().length;
+  $('#sf-offline').checked = srv ? srv.offline : true;
+  $('#srv-form-title').textContent = srv ? `${srv.name} settings` : 'New server';
+  $('#sf-submit').textContent = srv ? 'Save changes' : 'Agree and create server';
+  $('#sf-eula').hidden = !!srv;
+  updateServerTypeOption();
+  renderSrvDetail(); renderSrvList();
+  $('#sf-name').focus();
+}
+function updateServerTypeOption() {
+  const ok = fabricSet.has($('#sf-version').value);
+  const opt = $('#sf-type').querySelector('[value=fabric]');
+  opt.disabled = !ok; opt.textContent = ok ? 'Fabric, for server mods' : 'Fabric (not out for this version)';
+  if (!ok) $('#sf-type').value = 'vanilla';
+}
+$('#sf-version').onchange = updateServerTypeOption;
+document.querySelectorAll('[data-new-server]').forEach((b) => (b.onclick = () => openServerForm(null)));
+$('#sf-cancel').onclick = () => { srvEditing = null; selectServer(); };
+$('#srv-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const isNew = srvEditing === 'new';
+  const r = await api.saveServer({
+    id: isNew ? undefined : srvEditing, agreedEula: isNew,
+    name: $('#sf-name').value.trim() || 'My Server', mc: $('#sf-version').value, type: $('#sf-type').value,
+    ram: +$('#sf-ram').value, gamemode: $('#sf-gamemode').value, difficulty: $('#sf-difficulty').value,
+    port: +$('#sf-port').value, offline: $('#sf-offline').checked,
+  });
+  if (r.error) return toast(r.error);
+  S = r; srvEditing = null;
+  await selectServer();
+  toast(isNew ? 'Server created. Press Start when you’re ready.' : 'Saved. Changes apply next time it starts.');
+};
+$('#srv-edit').onclick = () => openServerForm(srvSel());
+$('#srv-delete').onclick = async () => {
+  const sel = srvSel(); if (!sel) return;
+  if (!confirm(`Delete "${sel.name}"? Its world and files will be removed for good.`)) return;
+  S = await api.deleteServer(sel.id); delete srvStates[sel.id];
+  await selectServer(); toast(`Deleted ${sel.name}`);
+};
+$('#srv-toggle').onclick = async () => {
+  const sel = srvSel(); if (!sel) return;
+  const st = (srvStates[sel.id] || {}).state || 'stopped';
+  if (st === 'stopped') {
+    $('#srv-log').replaceChildren();
+    const r = await api.startServer(sel.id);
+    if (r.error) toast(r.error);
+  } else await api.stopServer(sel.id);
+};
+$('#srv-cmd').onsubmit = async (e) => {
+  e.preventDefault();
+  const sel = srvSel(), text = $('#srv-input').value.trim();
+  if (!sel || !text) return;
+  srvFollow = true;
+  srvLogLine(`> ${text}`);
+  const r = await api.serverCommand(sel.id, text);
+  if (r.error) toast(r.error); else $('#srv-input').value = '';
+};
+document.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => srvSel() && api.openServerFolder(srvSel().id, b.dataset.open)));
+
+api.on('server:log', ({ id, line }) => { if (srvSel() && id === srvSel().id && !srvEditing) srvLogLine(line); });
+api.on('server:state', (st) => {
+  srvStates[st.id] = { state: st.state, players: st.players || [] };
+  renderSrvList();
+  if (srvSel() && st.id === srvSel().id) renderSrvDetail(st.local ? st : null);
+  if (st.state === 'running' && st.local && $('#srv-addr').childElementCount === 0) renderSrvDetail(st);
+});
 
 // ================= updates =================
 let update = null, updateDismissed = null;

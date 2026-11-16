@@ -1,7 +1,7 @@
 {
   "name": "crooli-mc-launcher",
   "productName": "Crooli MC Launcher",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "A simple, retro-styled Minecraft launcher",
   "main": "src/main.js",
   "scripts": {
@@ -21,11 +21,13 @@
     "mac": {
       "target": "dmg",
       "category": "public.app-category.games",
-      "artifactName": "Crooli-MC-Launcher-${version}-mac-${arch}.${ext}"
+      "artifactName": "Crooli-MC-Launcher-${version}-mac-${arch}.${ext}",
+      "icon": "build/icon.png"
     },
     "win": {
       "target": "nsis",
-      "artifactName": "Crooli-MC-Launcher-Setup-${version}.${ext}"
+      "artifactName": "Crooli-MC-Launcher-Setup-${version}.${ext}",
+      "icon": "build/icon.png"
     },
     "publish": [
       {
@@ -33,7 +35,11 @@
         "owner": "xandertaylorx",
         "repo": "crooli-mc-launcher"
       }
-    ]
+    ],
+    "directories": {
+      "buildResources": "build"
+    },
+    "nsis": {}
   },
   "dependencies": {
     "@fontsource/atkinson-hyperlegible": "^5.3.0",
