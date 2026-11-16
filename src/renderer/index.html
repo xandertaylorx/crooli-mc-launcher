@@ -1,14 +1,15 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
   <title>Crooli MC Launcher</title>
+  <script src="theme-init.js"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <header class="topbar">
-    <div class="brand"><span class="block-icon" aria-hidden="true"></span>Crooli MC Launcher</div>
+    <div class="brand"><span class="block-icon" aria-hidden="true"></span>Crooli<span class="product">MC Launcher</span></div>
     <nav id="tabs">
       <button class="tab active" data-view="play">Play</button>
       <button class="tab" data-view="mods">Mods</button>
@@ -16,6 +17,7 @@
       <button class="tab" data-view="servers">Servers</button>
       <button class="tab" data-view="settings">Settings</button>
     </nav>
+    <button class="theme-toggle" id="theme-toggle" type="button" hidden aria-label="Switch to light theme" aria-pressed="true"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
     <label class="player" title="Change your player name">
       <canvas id="face" width="8" height="8"></canvas>
       <input id="in-name" type="text" maxlength="16" spellcheck="false" aria-label="Player name">
@@ -146,11 +148,42 @@
               <button id="srv-toggle" class="mc-btn green" type="button">Start</button>
             </div>
             <div class="srv-addr" id="srv-addr"></div>
-            <div id="srv-log" class="console srv-log"></div>
-            <form id="srv-cmd" class="search srv-cmd">
-              <input id="srv-input" type="text" placeholder="Type a command, like op Steve or time set day" autocomplete="off" spellcheck="false">
-              <button class="mc-btn small" type="submit">Send</button>
-            </form>
+            <div class="subtabs srv-tabs" id="srv-tabs">
+              <button class="subtab active" type="button" data-srvtab="console">Console</button>
+              <button class="subtab" type="button" data-srvtab="players">Players</button>
+              <button class="subtab" type="button" data-srvtab="options">Options</button>
+            </div>
+
+            <div class="srv-pane" id="srvp-console">
+              <div id="srv-log" class="console srv-log"></div>
+              <form id="srv-cmd" class="search srv-cmd" autocomplete="off">
+                <div class="cmd-wrap">
+                  <ul id="cmd-pop" class="cmd-pop" role="listbox" hidden></ul>
+                  <input id="srv-input" type="text" placeholder="Type a command. Press Tab to complete it." autocomplete="off" spellcheck="false" role="combobox" aria-expanded="false" aria-controls="cmd-pop">
+                </div>
+                <button class="mc-btn small" type="submit">Send</button>
+              </form>
+            </div>
+
+            <div class="srv-pane" id="srvp-players" hidden>
+              <label class="opt-row big"><span class="opt-text"><b>Whitelist</b><small id="wl-state">Only players on the list can join.</small></span><input type="checkbox" class="switch" id="wl-on" aria-label="Whitelist"></label>
+              <form id="wl-form" class="search" autocomplete="off">
+                <input id="wl-name" type="text" maxlength="16" placeholder="Add a player by name" spellcheck="false" aria-label="Player name to whitelist">
+                <button class="mc-btn small green" type="submit">Add</button>
+              </form>
+              <div id="wl-online" class="chips" hidden></div>
+              <div id="wl-list" class="rows compact"></div>
+              <p class="hint" id="wl-hint"></p>
+            </div>
+
+            <div class="srv-pane" id="srvp-options" hidden>
+              <div class="opt-grid">
+                <label class="opt-sel">Game mode<select id="so-gamemode"><option value="survival">Survival</option><option value="creative">Creative</option><option value="adventure">Adventure</option><option value="spectator">Spectator</option></select></label>
+                <label class="opt-sel">Difficulty<select id="so-difficulty"><option value="peaceful">Peaceful</option><option value="easy">Easy</option><option value="normal">Normal</option><option value="hard">Hard</option></select></label>
+              </div>
+              <div id="so-list" class="rows compact"></div>
+              <p class="hint" id="so-hint">Changes are saved straight away. A running server picks most of them up when it restarts.</p>
+            </div>
             <div class="srv-links">
               <button class="link quiet" type="button" data-open="">Server folder</button>
               <button class="link quiet" type="button" data-open="world">World folder</button>
@@ -215,19 +248,10 @@
           </div>
           <div class="skin-controls">
             <div class="subtabs" id="skin-tabs" role="tablist">
-              <button class="subtab active" data-skin="build" type="button" role="tab">Build one</button>
-              <button class="subtab" data-skin="file" type="button" role="tab">From a file</button>
+              <button class="subtab active" data-skin="file" type="button" role="tab">From a file</button>
               <button class="subtab" data-skin="player" type="button" role="tab">From a player</button>
             </div>
-            <div class="skin-pane colors" data-pane="build">
-              <label>Skin<input type="color" id="sk-tone" value="#c69c7c"></label>
-              <label>Hair<input type="color" id="sk-hair" value="#4a3220"></label>
-              <label>Eyes<input type="color" id="sk-eyes" value="#3f5fbf"></label>
-              <label>Shirt<input type="color" id="sk-shirt" value="#3aa6b3"></label>
-              <label>Trousers<input type="color" id="sk-pants" value="#3f3fa8"></label>
-              <label>Shoes<input type="color" id="sk-shoes" value="#5b5b5b"></label>
-            </div>
-            <div class="skin-pane" data-pane="file" hidden>
+            <div class="skin-pane" data-pane="file">
               <label>A skin image (PNG, 64 by 64)<input type="file" id="skin-file" accept="image/png"></label>
               <label>Arm style of that skin
                 <select id="skin-arms"><option value="classic">Classic, 4 pixels wide</option><option value="slim">Slim, 3 pixels wide</option></select>
@@ -284,6 +308,7 @@
   </dialog>
 
   <div id="toast" role="status"></div>
+  <script src="console-complete.js"></script>
   <script src="app.js"></script>
   <script src="skin-ui.js"></script>
   <script src="import-ui.js"></script>

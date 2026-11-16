@@ -30,8 +30,9 @@ function dirtTile() {
 const DIRT = dirtTile();
 
 // Player face, hair colour picked from the name so each player looks a bit different
-function drawFace(name) {
-  const g = $('#face').getContext('2d');
+function drawFace(name) { drawFaceOn($('#face'), name); }
+function drawFaceOn(canvas, name) {
+  const g = canvas.getContext('2d');
   const hairs = ['#3b2a1a', '#6b4423', '#c9a14a', '#262626', '#8a3b22', '#d9d2c5'];
   let hsh = 0; for (const ch of name) hsh = (hsh * 31 + ch.charCodeAt(0)) >>> 0;
   const pal = { H: hairs[hsh % hairs.length], S: '#c69c7c', D: '#a77b5c', W: '#f2f2f2', B: '#4a5fc1', M: '#6b3f2e' };
@@ -129,6 +130,24 @@ function loop(now) {
 new ResizeObserver(sizeScene).observe(sky);
 if (!reduceMotion) requestAnimationFrame(loop);
 setInterval(() => drawScene(performance.now()), 60000); // keep time of day current
+
+// ================= light / dark, like the Crooli websites =================
+function applyTheme(t) {
+  document.documentElement.dataset.theme = t;
+  const b = $('#theme-toggle');
+  b.setAttribute('aria-pressed', String(t === 'dark'));
+  b.setAttribute('aria-label', t === 'dark' ? 'Switch to light theme' : 'Switch to dark theme');
+  drawScene(performance.now());
+}
+$('#theme-toggle').onclick = (e) => {
+  const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  try { localStorage.setItem('crooli-mc.theme', next); } catch {}
+  if (document.startViewTransition && !reduceMotion) {
+    document.documentElement.style.setProperty('--vx', `${e.clientX}px`); document.documentElement.style.setProperty('--vy', `${e.clientY}px`);
+    document.startViewTransition(() => applyTheme(next));
+  } else applyTheme(next);
+};
+applyTheme(document.documentElement.dataset.theme);
 
 // ================= UI basics =================
 function toast(msg) {
@@ -284,7 +303,7 @@ function showConflicts(i, list) {
   $('#conflict-fix').hidden = false; $('#conflict-fix').disabled = false; $('#conflict-fix').textContent = 'Fix it for me';
   $('#conflict-play').hidden = true; $('#conflict-anyway').hidden = false;
   cd.dataset.inst = i.id;
-  if (!cd.open) cd.showModal();
+  if (!cd.open) { cd.showModal(); cd.setAttribute('tabindex', '-1'); cd.focus(); }
 }
 $('#conflict-cancel').onclick = () => cd.close();
 $('#conflict-anyway').onclick = async () => {
@@ -611,6 +630,8 @@ async function selectServer(id) {
     srvStates[sel.id] = { state: st.state, players: st.players };
     st.log.forEach(srvLogLine);
     renderSrvDetail(st);
+    showSrvTab(srvTab);
+    api.whitelistList(sel.id).then((w) => { wlCache.names = w.names || []; });
   } else renderSrvDetail();
   renderSrvList();
 }
@@ -680,8 +701,141 @@ $('#srv-cmd').onsubmit = async (e) => {
   srvFollow = true;
   srvLogLine(`> ${text}`);
   const r = await api.serverCommand(sel.id, text);
-  if (r.error) toast(r.error); else $('#srv-input').value = '';
+  if (r.error) toast(r.error); else { $('#srv-input').value = ''; if (cmdHistory[0] !== text) cmdHistory.unshift(text); histAt = -1; }
 };
+// ----- console: tab-completion and history -----
+let wlCache = { names: [], on: false };
+const cmdHistory = []; let histAt = -1;
+{
+  const inp = $('#srv-input'), pop = $('#cmd-pop');
+  let cur = { start: 0, options: [] }, idx = -1;
+  const close = () => { pop.hidden = true; idx = -1; inp.setAttribute('aria-expanded', 'false'); };
+  const context = () => { const s = srvSel(); return { players: s ? ((srvStates[s.id] || {}).players || []) : [], whitelist: wlCache.names }; };
+  function paint() {
+    pop.replaceChildren();
+    cur.options.forEach((o, i) => pop.append(h('li', { className: i === idx ? 'on' : '', role: 'option', textContent: o, onmousedown: (e) => { e.preventDefault(); accept(i); } })));
+    pop.hidden = !cur.options.length; inp.setAttribute('aria-expanded', String(!pop.hidden));
+    const on = pop.querySelector('.on'); if (on) on.scrollIntoView({ block: 'nearest' });
+  }
+  function refresh() {
+    if (document.activeElement !== inp || !inp.value) return close();
+    cur = window.cmdSuggest(inp.value.slice(0, inp.selectionStart), context()); idx = -1; paint();
+  }
+  function accept(i) {
+    const o = cur.options[i]; if (o == null) return;
+    const rest = inp.value.slice(inp.selectionStart);
+    inp.value = inp.value.slice(0, cur.start) + o + ' ' + rest.replace(/^\S*/, '');
+    const at = cur.start + o.length + 1; inp.setSelectionRange(at, at); refresh();
+  }
+  function commonPrefix(list) {
+    let p = list[0]; for (const s of list) while (!s.toLowerCase().startsWith(p.toLowerCase())) p = p.slice(0, -1); return p;
+  }
+  inp.addEventListener('input', refresh);
+  inp.addEventListener('focus', refresh);
+  inp.addEventListener('blur', close);
+  inp.addEventListener('keydown', (e) => {
+    const open = !pop.hidden;
+    if (e.key === 'Tab' && cur.options.length && !e.shiftKey) {
+      e.preventDefault();
+      if (idx >= 0) return accept(idx);
+      const typed = inp.value.slice(cur.start, inp.selectionStart), starts = cur.options.filter((o) => o.toLowerCase().startsWith(typed.toLowerCase())), p = starts.length > 1 ? commonPrefix(starts) : '';
+      if (p.length > typed.length) { inp.value = inp.value.slice(0, cur.start) + p + inp.value.slice(inp.selectionStart); inp.setSelectionRange(cur.start + p.length, cur.start + p.length); refresh(); }
+      else accept(0);
+    } else if (e.key === 'ArrowDown' && open) { e.preventDefault(); idx = (idx + 1) % cur.options.length; paint(); }
+    else if (e.key === 'ArrowUp' && open) { e.preventDefault(); idx = idx <= 0 ? cur.options.length - 1 : idx - 1; paint(); }
+    else if (e.key === 'Enter' && open && idx >= 0) { e.preventDefault(); accept(idx); }
+    else if (e.key === 'Escape' && open) { e.preventDefault(); close(); }
+    else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && cmdHistory.length) {
+      e.preventDefault();
+      histAt = e.key === 'ArrowUp' ? Math.min(histAt + 1, cmdHistory.length - 1) : Math.max(histAt - 1, -1);
+      inp.value = histAt < 0 ? '' : cmdHistory[histAt]; refresh();
+    }
+  });
+  $('#srv-cmd').addEventListener('submit', close);
+}
+
+// ----- tabs inside a server: console, players, options -----
+let srvTab = 'console';
+function showSrvTab(t) {
+  srvTab = t;
+  document.querySelectorAll('[data-srvtab]').forEach((b) => b.classList.toggle('active', b.dataset.srvtab === t));
+  ['console', 'players', 'options'].forEach((n) => ($('#srvp-' + n).hidden = n !== t));
+  if (t === 'players') loadPlayers();
+  if (t === 'options') loadOptions();
+}
+document.querySelectorAll('[data-srvtab]').forEach((b) => (b.onclick = () => showSrvTab(b.dataset.srvtab)));
+const srvRunning = () => { const s = srvSel(); return !!s && ['starting', 'running'].includes((srvStates[s.id] || {}).state); };
+
+// ----- players and the whitelist -----
+function renderPlayers() {
+  const sel = srvSel(); if (!sel) return;
+  $('#wl-on').checked = wlCache.on;
+  $('#wl-state').textContent = wlCache.on ? 'Only players on the list can join.' : 'Off. Anyone who can reach the server can join.';
+  const list = $('#wl-list'); list.replaceChildren();
+  if (!wlCache.names.length) list.append(h('div', { className: 'empty', textContent: wlCache.on ? 'The list is empty, so nobody can join yet. Add yourself first.' : 'Nobody on the list yet.' }));
+  wlCache.names.forEach((n) => list.append(h('div', { className: 'row' },
+    h('canvas', { className: 'wl-face', width: 8, height: 8 }),
+    h('div', { className: 'info' }, h('div', { className: 't', textContent: n })),
+    h('div', { className: 'acts' }, h('button', { className: 'link quiet danger', type: 'button', textContent: 'Remove', onclick: () => wlChange(() => api.whitelistRemove(sel.id, n)) })))));
+  list.querySelectorAll('.wl-face').forEach((c, i) => drawFaceOn(c, wlCache.names[i]));
+  const online = ((srvStates[sel.id] || {}).players || []).filter((p) => !wlCache.names.some((n) => n.toLowerCase() === p.toLowerCase()));
+  const chips = $('#wl-online'); chips.replaceChildren(); chips.hidden = !online.length;
+  if (online.length) { chips.append(h('span', { className: 'hint', textContent: 'Online now:' })); online.forEach((p) => chips.append(h('button', { className: 'chip', type: 'button', textContent: `${p}  +`, onclick: () => wlChange(() => api.whitelistAdd(sel.id, p)) }))); }
+  $('#wl-hint').textContent = srvRunning() ? 'The server is running, so changes apply right away.' : 'Saved. This applies when the server starts.';
+}
+async function loadPlayers() {
+  const sel = srvSel(); if (!sel) return;
+  const o = await api.serverOptions(sel.id);
+  if (o.error) return;
+  wlCache = { names: o.whitelistNames, on: o.whitelist }; renderPlayers();
+}
+async function wlChange(fn) {
+  const r = await fn();
+  if (r && r.error) toast(r.error);
+  await new Promise((res) => setTimeout(res, srvRunning() ? 700 : 0)); // a running server writes its list a moment later
+  loadPlayers();
+}
+$('#wl-on').onchange = async (e) => {
+  const sel = srvSel(); if (!sel) return;
+  const r = await api.setServerOption(sel.id, 'whitelist', e.target.checked);
+  if (r.error) { toast(r.error); e.target.checked = !e.target.checked; return; }
+  wlCache.on = e.target.checked; renderPlayers();
+};
+$('#wl-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const sel = srvSel(), name = $('#wl-name').value.trim(); if (!sel || !name) return;
+  const b = e.submitter; if (b) b.disabled = true;
+  const r = await api.whitelistAdd(sel.id, name);
+  if (b) b.disabled = false;
+  if (r.error) return toast(r.error);
+  $('#wl-name').value = ''; toast(`Added ${name}`);
+  await new Promise((res) => setTimeout(res, srvRunning() ? 700 : 0)); loadPlayers();
+};
+
+// ----- on/off options -----
+async function loadOptions() {
+  const sel = srvSel(); if (!sel) return;
+  const o = await api.serverOptions(sel.id);
+  if (o.error) return;
+  $('#so-gamemode').value = o.gamemode; $('#so-difficulty').value = o.difficulty;
+  const list = $('#so-list'); list.replaceChildren();
+  o.options.forEach((opt) => {
+    const box = h('input', { type: 'checkbox', className: 'switch', checked: opt.value, ariaLabel: opt.label });
+    box.onchange = async () => {
+      const r = await api.setServerOption(sel.id, opt.key, box.checked);
+      if (r.error) { toast(r.error); box.checked = !box.checked; return; }
+      toast(srvRunning() && opt.restart ? 'Saved. Restart the server to apply it.' : 'Saved.');
+    };
+    list.append(h('label', { className: 'row opt-row' }, h('span', { className: 'opt-text' }, h('b', { textContent: opt.label }), opt.desc ? h('small', { textContent: opt.desc }) : ''), box));
+  });
+}
+['gamemode', 'difficulty'].forEach((k) => ($('#so-' + k).onchange = async (e) => {
+  const sel = srvSel(); if (!sel) return;
+  const r = await api.setServerOption(sel.id, k, e.target.value);
+  if (r.error) return toast(r.error);
+  sel[k] = e.target.value; renderSrvDetail(); toast('Saved.');
+}));
+
 document.querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => srvSel() && api.openServerFolder(srvSel().id, b.dataset.open)));
 
 api.on('server:log', ({ id, line }) => { if (srvSel() && id === srvSel().id && !srvEditing) srvLogLine(line); });
@@ -690,6 +844,7 @@ api.on('server:state', (st) => {
   renderSrvList();
   if (srvSel() && st.id === srvSel().id) renderSrvDetail(st.local ? st : null);
   if (st.state === 'running' && st.local && $('#srv-addr').childElementCount === 0) renderSrvDetail(st);
+  if (srvSel() && st.id === srvSel().id && srvTab === 'players') (st.state === 'running' ? loadPlayers() : renderPlayers());
 });
 
 // ================= updates =================

@@ -85,7 +85,7 @@
   async function open() {
     listBox.replaceChildren(h('div', { className: 'empty', textContent: 'Looking…' }));
     statusEl.textContent = '';
-    if (!dlg.open) dlg.showModal();
+    if (!dlg.open) { dlg.showModal(); dlg.setAttribute('tabindex', '-1'); dlg.focus(); }
     show(await api.scanImports());
   }
 

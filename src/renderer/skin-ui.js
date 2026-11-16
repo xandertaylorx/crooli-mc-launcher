@@ -1,4 +1,4 @@
-// Settings > Skin: build a skin from colours, load a PNG, or copy a player's, preview it, and save it.
+// Settings > Skin: load a PNG or copy a player's skin, preview it in 3D, and save it.
 // Everything is drawn on canvases here; main.js only stores the two finished PNGs. Needs app.js first.
 (() => {
   const mk = (w = 64, h = 64) => { const c = document.createElement('canvas'); c.width = w; c.height = h; return c; };
@@ -41,6 +41,21 @@
     return cv;
   }
 
+  /* ---------- the base layer is always opaque ----------
+     Minecraft forces the base layer of a skin (head, body, arms, legs) to be solid when it loads one; only the outer
+     layer (hat, jacket, sleeves, pants) may be see-through. A resource pack isn't given that treatment, so a skin
+     with holes in its base layer would show them as see-through limbs in the game. Do the same here. */
+  const BASE_LAYER = [[0, 0, 32, 16], [0, 16, 64, 16], [16, 48, 32, 16]]; // x, y, width, height
+  function opaqueBase(cv) {
+    const g = ctxOf(cv); let changed = false;
+    for (const [x, y, w, h] of BASE_LAYER) {
+      const im = g.getImageData(x, y, w, h), d = im.data;
+      for (let i = 3; i < d.length; i += 4) if (d[i] !== 255) { d[i] = 255; changed = true; }
+      g.putImageData(im, x, y);
+    }
+    return changed;
+  }
+
   /* ---------- turning other files into a 64 by 64 skin ---------- */
   function flipCopy(g, src, sx, sy, w, h, dx, dy) {
     g.save(); g.translate(dx + w, dy); g.scale(-1, 1); g.drawImage(src, sx, sy, w, h, 0, 0, w, h); g.restore();
@@ -63,6 +78,7 @@
       mirrorLimb(g, copy, 40, 16, 32, 48); // right arm to left arm
       mirrorLimb(g, copy, 0, 16, 16, 48);  // right leg to left leg
     }
+    opaqueBase(cv);
     return cv;
   }
 
@@ -166,7 +182,8 @@
   let origin = { name: 'My skin' };
   let saved = null;
 
-  const colors = () => ({ tone: $('#sk-tone').value, hair: $('#sk-hair').value, eyes: $('#sk-eyes').value, shirt: $('#sk-shirt').value, pants: $('#sk-pants').value, shoes: $('#sk-shoes').value });
+  // The skin builder is gone from the screen; the generator stays to draw the default-looking figure until you pick a skin.
+  const colors = () => ({ tone: '#c69c7c', hair: '#4a3220', eyes: '#3f5fbf', shirt: '#3aa6b3', pants: '#3f3fa8', shoes: '#5b5b5b' });
   const show = (cv, m) => { current = cv; model = m; drawFigure(view, cv, m === 'slim'); $('#skin-apply').disabled = false; };
 
   function status() {
@@ -177,11 +194,9 @@
   document.querySelectorAll('#skin-tabs .subtab').forEach((b) => (b.onclick = () => {
     document.querySelectorAll('#skin-tabs .subtab').forEach((x) => x.classList.toggle('active', x === b));
     document.querySelectorAll('.skin-pane').forEach((p) => (p.hidden = p.dataset.pane !== b.dataset.skin));
-    if (b.dataset.skin === 'build') rebuild();
   }));
 
-  function rebuild() { origin = { name: 'My skin' }; show(generate(colors()), 'classic'); }
-  ['tone', 'hair', 'eyes', 'shirt', 'pants', 'shoes'].forEach((k) => $(`#sk-${k}`).addEventListener('input', rebuild));
+  function rebuild() { origin = { name: 'My skin' }; show(generate(colors()), 'classic'); current = null; $('#skin-apply').disabled = true; }
 
   async function fromImage(src, m, name) {
     try { const cv = normalize(await loadImage(src)); origin = { name }; show(cv, m); }
@@ -207,6 +222,7 @@
 
   $('#skin-apply').onclick = async () => {
     if (!current) return;
+    opaqueBase(current);
     const wide = model === 'classic' ? current : convertArms(current, false);
     const slim = model === 'slim' ? current : convertArms(current, true);
     const r = await api.saveSkin({ wide: wide.toDataURL('image/png'), slim: slim.toDataURL('image/png'), name: origin.name, model });
@@ -225,7 +241,12 @@
       saved = { name: s.name, model: s.model };
       const img = await loadImage(s.model === 'slim' ? s.slim : s.wide);
       const cv = mk(); ctxOf(cv).drawImage(img, 0, 0);
+      const fixed = opaqueBase(cv);
       show(cv, s.model); origin = { name: s.name };
+      if (fixed) { // a skin saved before this fix had see-through limbs: save it again, solid
+        const wide = s.model === 'classic' ? cv : convertArms(cv, false), slimC = s.model === 'slim' ? cv : convertArms(cv, true);
+        await api.saveSkin({ wide: wide.toDataURL('image/png'), slim: slimC.toDataURL('image/png'), name: s.name, model: s.model });
+      }
     } else rebuild();
     status();
   })();

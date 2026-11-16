@@ -225,6 +225,8 @@ ipcMain.handle('servers:save', (_e, input) => {
     difficulty: ['peaceful', 'easy', 'normal', 'hard'].includes(input.difficulty) ? input.difficulty : 'normal',
     offline: !!input.offline,
   };
+  const prev = s.servers.find(x => x.id === srv.id);
+  if (prev) { srv.opts = prev.opts; srv.whitelist = prev.whitelist; }
   if (isNew) servers.writeEula(srv.id);
   const i = s.servers.findIndex(x => x.id === srv.id);
   if (i >= 0) s.servers[i] = srv; else s.servers.push(srv);
@@ -254,6 +256,40 @@ ipcMain.handle('servers:command', (_e, { id, text }) => {
   try { servers.command(id, text); return { ok: true }; } catch (e) { return { error: e.message }; }
 });
 ipcMain.handle('servers:status', (_e, id) => ({ ...servers.status(id), ...servers.addresses((getSrv(id) || {}).port || 25565) }));
+// On/off options and the whitelist, changeable whenever. Running servers get told straight away where they can be.
+ipcMain.handle('servers:options', (_e, id) => {
+  const srv = getSrv(id); if (!srv) return { error: 'Pick a server first.' };
+  return { ...servers.readOptions(srv), whitelistNames: servers.readWhitelist(id), difficulty: srv.difficulty, gamemode: srv.gamemode };
+});
+ipcMain.handle('servers:set-option', (_e, { id, key, value }) => {
+  const s = store.load(); const srv = (s.servers || []).find((x) => x.id === id);
+  if (!srv) return { error: 'Pick a server first.' };
+  const on = !!value;
+  if (key === 'whitelist') {
+    srv.whitelist = on; servers.setProperty(id, 'white-list', String(on)); servers.setProperty(id, 'enforce-whitelist', String(on));
+  } else if (key === 'difficulty' || key === 'gamemode') {
+    const ok = key === 'difficulty' ? ['peaceful', 'easy', 'normal', 'hard'] : ['survival', 'creative', 'adventure', 'spectator'];
+    if (!ok.includes(value)) return { error: 'Not a valid choice.' };
+    srv[key] = value; servers.setProperty(id, key, value);
+    if (servers.isRunning()) { try { servers.command(id, key === 'difficulty' ? `difficulty ${value}` : `defaultgamemode ${value}`); } catch {} }
+    store.save(s); return { ok: true };
+  } else {
+    if (!/^[a-z-]+$/.test(key)) return { error: 'Unknown option.' };
+    srv.opts = { ...(srv.opts || {}), [key]: on }; servers.setProperty(id, key, String(on));
+  }
+  store.save(s);
+  try { servers.applyLive(srv, key, on); } catch {}
+  return { ok: true };
+});
+ipcMain.handle('servers:whitelist-add', async (_e, { id, name }) => {
+  const srv = getSrv(id); if (!srv) return { error: 'Pick a server first.' };
+  try { await servers.whitelistAdd(srv, name); return { ok: true }; } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('servers:whitelist-remove', (_e, { id, name }) => {
+  const srv = getSrv(id); if (!srv) return { error: 'Pick a server first.' };
+  try { servers.whitelistRemove(srv, name); return { ok: true }; } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('servers:whitelist-list', (_e, id) => ({ names: servers.readWhitelist(id) }));
 ipcMain.handle('servers:open', (_e, { id, sub }) => {
   const where = { world: 'world', mods: 'mods' }[sub] || '';
   const p = path.join(servers.dirOf(id), where);

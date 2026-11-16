@@ -22,10 +22,46 @@ function writeEula(id) {
     `# Agreed in Crooli MC Launcher on ${new Date().toISOString()}\n# https://aka.ms/MinecraftEULA\neula=true\n`);
 }
 
+// The simple on/off settings shown in the app. `restart` ones only take effect the next time the server starts.
+const OPTIONS = [
+  { key: 'pvp', label: 'Players can fight each other', def: true, restart: true },
+  { key: 'allow-flight', label: 'Allow flying', desc: 'Stops the server kicking people who fly with mods or elytra tricks.', def: false, restart: true },
+  { key: 'enable-command-block', label: 'Command blocks', def: false, restart: true },
+  { key: 'allow-nether', label: 'The Nether', def: true, restart: true },
+  { key: 'spawn-monsters', label: 'Monsters', def: true, restart: true },
+  { key: 'spawn-animals', label: 'Animals', def: true, restart: true },
+  { key: 'spawn-npcs', label: 'Villagers', def: true, restart: true },
+];
+const BOOL_KEYS = new Set(OPTIONS.map((o) => o.key));
+
+function readProps(id) {
+  const out = {};
+  try {
+    for (const l of fs.readFileSync(path.join(dirOf(id), 'server.properties'), 'utf8').split(/\r?\n/)) {
+      const m = l.match(/^([^#=\s][^=]*)=(.*)$/); if (m) out[m[1]] = m[2];
+    }
+  } catch {}
+  return out;
+}
+
+// Current value of every option: what is in the server's own file if it has one, else what we will write.
+function readOptions(srv) {
+  const file = readProps(srv.id), mine = srv.opts || {};
+  const val = {};
+  for (const o of OPTIONS) val[o.key] = o.key in file ? file[o.key] === 'true' : o.key in mine ? !!mine[o.key] : o.def;
+  val.whitelist = 'white-list' in file ? file['white-list'] === 'true' : !!srv.whitelist;
+  return { options: OPTIONS.map((o) => ({ ...o, value: val[o.key] })), whitelist: val.whitelist };
+}
+
 // Update only the keys we manage; anything the user set by hand stays.
 function writeProperties(srv) {
   const file = path.join(dirOf(srv.id), 'server.properties');
+  const extra = {};
+  for (const [k, v] of Object.entries(srv.opts || {})) if (BOOL_KEYS.has(k)) extra[k] = v ? 'true' : 'false';
   const want = {
+    ...extra,
+    'white-list': srv.whitelist ? 'true' : 'false',
+    'enforce-whitelist': srv.whitelist ? 'true' : 'false',
     'server-port': String(srv.port || 25565),
     'online-mode': srv.offline ? 'false' : 'true',
     gamemode: srv.gamemode || 'survival',
@@ -41,6 +77,62 @@ function writeProperties(srv) {
     return l;
   });
   for (const [k, v] of Object.entries(want)) if (!seen.has(k)) out.push(`${k}=${v}`);
+  fs.writeFileSync(file, out.filter((l, i) => l || i < out.length - 1).join('\n') + '\n');
+}
+
+// ---------- whitelist ----------
+const wlFile = (id) => path.join(dirOf(id), 'whitelist.json');
+function readWhitelist(id) {
+  try { return JSON.parse(fs.readFileSync(wlFile(id), 'utf8')).map((e) => e.name).filter(Boolean).sort((a, b) => a.toLowerCase().localeCompare(b.toLowerCase())); }
+  catch { return []; }
+}
+const dashed = (hex) => hex.replace(/^(.{8})(.{4})(.{4})(.{4})(.{12})$/, '$1-$2-$3-$4-$5');
+function offlineUuid(name) {
+  const b = require('crypto').createHash('md5').update('OfflinePlayer:' + name).digest();
+  b[6] = (b[6] & 0x0f) | 0x30; b[8] = (b[8] & 0x3f) | 0x80;
+  return dashed(b.toString('hex'));
+}
+async function uuidFor(srv, name) {
+  if (srv.offline) return { uuid: offlineUuid(name), name };
+  const r = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`, { headers: { 'User-Agent': 'CrooliMCLauncher' } });
+  if (r.status === 204 || r.status === 404) throw new Error(`There's no Minecraft account called ${name}.`);
+  if (!r.ok) throw new Error('Couldn’t reach Mojang to look that name up. Try again in a moment.');
+  const j = await r.json();
+  return { uuid: dashed(j.id), name: j.name };
+}
+const validName = (n) => /^\w{3,16}$/.test(n);
+
+// Running servers get the command (they keep their own list in memory); stopped ones get the file edited.
+async function whitelistAdd(srv, rawName) {
+  const name = String(rawName || '').trim();
+  if (!validName(name)) throw new Error('Player names are 3 to 16 letters, numbers or underscores.');
+  if (running.has(srv.id) && running.get(srv.id).child) { command(srv.id, `whitelist add ${name}`); return; }
+  const who = await uuidFor(srv, name);
+  let list = []; try { list = JSON.parse(fs.readFileSync(wlFile(srv.id), 'utf8')); } catch {}
+  if (list.some((e) => (e.name || '').toLowerCase() === who.name.toLowerCase())) return;
+  list.push({ uuid: who.uuid, name: who.name });
+  fs.mkdirSync(dirOf(srv.id), { recursive: true });
+  fs.writeFileSync(wlFile(srv.id), JSON.stringify(list, null, 2));
+}
+function whitelistRemove(srv, name) {
+  if (running.has(srv.id) && running.get(srv.id).child) { command(srv.id, `whitelist remove ${name}`); return; }
+  let list = []; try { list = JSON.parse(fs.readFileSync(wlFile(srv.id), 'utf8')); } catch {}
+  fs.writeFileSync(wlFile(srv.id), JSON.stringify(list.filter((e) => (e.name || '').toLowerCase() !== String(name).toLowerCase()), null, 2));
+}
+
+// Changes made while the server is running: tell it where it can, and always keep the file and our copy in step.
+function applyLive(srv, key, value) {
+  const r = running.get(srv.id);
+  if (!r || !r.child) return;
+  if (key === 'whitelist') command(srv.id, value ? 'whitelist on' : 'whitelist off');
+}
+function setProperty(id, key, value) {
+  const file = path.join(dirOf(id), 'server.properties');
+  if (!fs.existsSync(file)) return;
+  const lines = fs.readFileSync(file, 'utf8').split(/\r?\n/);
+  let hit = false;
+  const out = lines.map((l) => (l.startsWith(key + '=') ? ((hit = true), `${key}=${value}`) : l));
+  if (!hit) out.push(`${key}=${value}`);
   fs.writeFileSync(file, out.filter((l, i) => l || i < out.length - 1).join('\n') + '\n');
 }
 
@@ -176,4 +268,4 @@ const status = (id) => {
   return { state: r ? r.state : 'stopped', players: r ? [...r.players] : [], log: logs.get(id) || [] };
 };
 
-module.exports = { dirOf, writeEula, writeProperties, start, stop, stopAll, command, status, addresses, isRunning };
+module.exports = { dirOf, writeEula, writeProperties, readOptions, readWhitelist, whitelistAdd, whitelistRemove, applyLive, setProperty, start, stop, stopAll, command, status, addresses, isRunning };
