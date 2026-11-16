@@ -135,7 +135,9 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
     game = flattenArgs(vj.arguments.game, vars);
   } else {
     jvm = ['-Djava.library.path=' + nativesDir, '-cp', vars.classpath];
-    game = expand(vj.minecraftArguments, vars).split(' ');
+    // Split the template into words first, then fill each one in, so a folder with a space in its name ("Application Support",
+    // "John Smith") stays one argument instead of being cut in two.
+    game = vj.minecraftArguments.split(' ').filter(Boolean).map((w) => expand(w, vars));
   }
   const ram = inst.ram || 2048;
   const extra = [`-Xmx${ram}M`, `-Xms${Math.min(512, ram)}M`];
