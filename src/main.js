@@ -13,6 +13,8 @@ const mods = require('./core/modrinth');
 const packs = require('./core/packs');
 const skin = require('./core/skin');
 const importer = require('./core/importer');
+const crooli = require('./core/crooli-mods');
+const compat = require('./core/compat');
 const { createUpdater } = require('./core/updater');
 const servers = require('./core/servers');
 
@@ -105,10 +107,16 @@ ipcMain.handle('instance:delete', (_e, id) => {
 ipcMain.handle('instance:open', (_e, id) => { fs.mkdirSync(instDir(id), { recursive: true }); return shell.openPath(instDir(id)); });
 
 let launching = null; // the job for a launch that is still getting files ready
-ipcMain.handle('game:launch', async (_e, id) => {
+ipcMain.handle('game:launch', async (_e, id, opts = {}) => {
   if (game || launching) return { error: 'The game is already running.' };
   const inst = getInst(id), s = store.load();
   if (!inst) return { error: 'No instance selected.' };
+  // Don't start a game that Fabric is going to refuse: check the mods' own rules first.
+  if (inst.loader === 'fabric' && !opts.force) {
+    let problems = [];
+    try { problems = compat.check(compat.scan(instDir(id))); } catch {}
+    if (problems.length) return { conflicts: problems.map((p) => p.text) };
+  }
   const job = core.newJob();
   launching = job;
   try {
@@ -143,7 +151,27 @@ ipcMain.handle('packs:install', async (_e, { id, projectId, type }) => {
   if (!inst) return { error: 'Pick an installation first.' };
   if (kind === 'mod' && inst.loader !== 'fabric') return { error: 'Switch this installation to Fabric first.' };
   if (kind === 'shader' && inst.loader !== 'fabric') return { error: 'Shader packs need Fabric and Iris. Make a Fabric installation.' };
-  try { return await mods.install(instDir(id), projectId, inst.mc, inst.loader, kind); } catch (e) { return { error: e.message }; }
+  // For mods: remember what was there, install, and make sure the result still works together. A mod that
+  // would leave the installation with a conflict is fixed if possible and otherwise taken back out.
+  const dir = path.join(instDir(id), 'mods');
+  const had = kind === 'mod' && fs.existsSync(dir) ? new Set(fs.readdirSync(dir)) : null;
+  const known = new Set();
+  if (had) { try { compat.check(compat.scan(instDir(id))).forEach((p) => known.add(p.text)); } catch {} }
+  try {
+    const res = await mods.install(instDir(id), projectId, inst.mc, inst.loader, kind);
+    if (had) {
+      const fresh = () => compat.check(compat.scan(instDir(id))).filter((p) => !known.has(p.text));
+      let bad = []; try { bad = fresh(); } catch {}
+      if (bad.length) {
+        try { await compat.autofix(instDir(id), inst); bad = fresh(); } catch {}
+      }
+      if (bad.length) {
+        for (const f of fs.readdirSync(dir)) if (!had.has(f)) fs.rmSync(path.join(dir, f), { force: true });
+        return { error: `That mod can't be added to this installation: ${bad[0].text} It was removed again.` };
+      }
+    }
+    return res;
+  } catch (e) { return { error: e.message }; }
 });
 ipcMain.handle('packs:list', (_e, { id, type }) => packs.list(instDir(id), kindOf(type), (getInst(id) || {}).mc));
 const whenClosed = () => (game ? 'Close Minecraft first: it saves its settings when it quits and would undo this.' : null);
@@ -277,4 +305,22 @@ ipcMain.handle('import:run', async (_e, { id, name, mc, parts }) => {
     fs.rmSync(dest, { recursive: true, force: true }); // never leave a half-copied installation behind
     return { error: `Couldn’t finish copying: ${e.message}` };
   }
+});
+
+// ---- Crooli's mods: the mods and shader packs on xandertaylorx.github.io/minecraft-mods ----
+ipcMain.handle('crooli:list', async () => { try { return { mods: await crooli.list() }; } catch (e) { return { error: e.message }; } });
+ipcMain.handle('crooli:install', async (_e, { id, modId }) => {
+  const inst = getInst(id);
+  if (!inst) return { error: 'Pick an installation first.' };
+  try { return await crooli.install(instDir(id), inst, modId); } catch (e) { return { error: e.message }; }
+});
+
+// ---- mod compatibility ----
+ipcMain.handle('compat:fix', async (_e, id) => {
+  const inst = getInst(id);
+  if (!inst) return { error: 'Pick an installation first.' };
+  try {
+    const r = await compat.autofix(instDir(id), inst, (label) => send('compat:step', label));
+    return { fixed: r.fixed, actions: r.actions, problems: r.problems.map((p) => p.text) };
+  } catch (e) { return { error: `Couldn't fix it: ${e.message}` }; }
 });

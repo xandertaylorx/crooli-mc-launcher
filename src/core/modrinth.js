@@ -32,6 +32,10 @@ async function search({ query = '', mc, loader = 'fabric', type = 'mod', offset 
 async function latestVersion(projectId, mc, loader, type) {
   const loaders = type === 'mod' ? `&loaders=${q([loader])}` : '';
   let vs = await getJson(`${API}/project/${projectId}/version?game_versions=${q([mc])}${loaders}`);
+  // Prefer stable releases. Betas and alphas are only used when there is nothing stable for this version,
+  // because mods are tested against each other's stable builds (a beta of one can break another).
+  const rank = { release: 0, beta: 1, alpha: 2 };
+  vs = vs.map((v, i) => [v, i]).sort((a, b) => ((rank[a[0].version_type] ?? 3) - (rank[b[0].version_type] ?? 3)) || (a[1] - b[1])).map((x) => x[0]);
   if (type === 'shader') vs = [...vs.filter(v => (v.loaders || []).includes('iris')), ...vs.filter(v => !(v.loaders || []).includes('iris'))];
   if (vs[0]) return { version: vs[0], exact: true };
   if (type === 'mod') return null;

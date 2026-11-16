@@ -3,7 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const { AsyncLocalStorage } = require('async_hooks');
 
-const UA = 'CrooliLauncher/0.4.0 (https://mclauncher.crooli.com)';
+const UA = 'CrooliLauncher/0.4.1 (https://mclauncher.crooli.com)';
 
 let ROOT = null;
 function setRoot(r) { ROOT = r; fs.mkdirSync(r, { recursive: true }); }

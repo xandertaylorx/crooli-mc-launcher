@@ -94,6 +94,10 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
   // arguments
   const gameDir = path.join(dirs.instances(), inst.id);
   fs.mkdirSync(gameDir, { recursive: true });
+  // Minecraft shows "Unable to read or access folder where game worlds are saved" if there is no saves folder yet,
+  // which is the case in a brand new installation. Create the folders it expects.
+  for (const d of ['saves', 'resourcepacks', 'shaderpacks', 'screenshots']) fs.mkdirSync(path.join(gameDir, d), { recursive: true });
+  if (inst.loader === 'fabric') fs.mkdirSync(path.join(gameDir, 'mods'), { recursive: true });
   // Put the player's skin in place (or take it out), right before the game reads its settings.
   try { skin.apply(gameDir, jar, inst.mc); } catch (e) { emit('log', `Couldn't set up the skin: ${e.message}`); }
   const cp = [...libs.classpath, jar];

@@ -20,7 +20,9 @@ npm run dist:win   # .exe installer (best built on Windows)
 
 - **Installations**: pick any Minecraft release or snapshot, Vanilla or Fabric, and set the memory. Each one has its own folder (worlds, mods, packs, settings).
 - **Downloads everything**: the game, libraries, assets and Mojang's own bundled Java. Press **Cancel** while it's getting files ready and everything that start downloaded is removed.
+- **Mod compatibility**: before Play it reads each mod's own rules and refuses to start a game Fabric would reject, explaining the problem and offering to fix it (it tries other builds of the mods involved). Installs prefer stable releases, and an install that would break your set is taken back out.
 - **Mods, resource packs and shaders**: search Modrinth filtered to your version, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders). Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.
+- **Crooli's mods**: a tab on the Mods page listing the mods and shader pack from xandertaylorx.github.io/minecraft-mods, read live from that page.
 - **Servers**: create a Minecraft server (Vanilla or Fabric) with one click, start and stop it, run commands in the console, copy the address to share, and open its folders.
 - **Skins**: build a skin from six colours, load a PNG, or copy a player's. Because the account is offline, it's applied as a resource pack when the game starts.
 - **Import**: finds installs from the Minecraft Launcher, Prism, MultiMC, CurseForge, Modrinth App and others (or any folder you point it at) and copies worlds, mods, packs and settings into a new installation. The originals are never changed.

@@ -269,9 +269,53 @@ async function launch() {
   if (state !== 'idle') return;
   $('#log').textContent = '';
   const r = await api.launch(i.id);
+  if (r && r.conflicts) return showConflicts(i, r.conflicts);
   if (r && r.cancelled) toast('Cancelled. What it had downloaded was removed.');
   else if (r && r.error) { toast(r.error); log('Error: ' + r.error); $('#log-drawer').hidden = false; }
 }
+// ---- mods that don't work together: explain, offer a fix, or start anyway ----
+const cd = $('#conflict-dialog');
+function showConflicts(i, list) {
+  const ul = $('#conflict-list'); ul.replaceChildren(...list.map((t) => h('li', { textContent: t })));
+  $('#conflict-title').textContent = 'Some mods don’t work together';
+  $('#conflict-intro').textContent = 'Minecraft would stop with an error if you started now. These are the problems:';
+  $('#conflict-actions-done').hidden = true;
+  $('#conflict-status').textContent = '';
+  $('#conflict-fix').hidden = false; $('#conflict-fix').disabled = false; $('#conflict-fix').textContent = 'Fix it for me';
+  $('#conflict-play').hidden = true; $('#conflict-anyway').hidden = false;
+  cd.dataset.inst = i.id;
+  if (!cd.open) cd.showModal();
+}
+$('#conflict-cancel').onclick = () => cd.close();
+$('#conflict-anyway').onclick = async () => {
+  const id = cd.dataset.inst; cd.close();
+  if (state !== 'idle') return;
+  $('#log').textContent = '';
+  const r = await api.launch(id, { force: true });
+  if (r && r.error) { toast(r.error); log('Error: ' + r.error); }
+};
+$('#conflict-play').onclick = () => { cd.close(); launch(); };
+$('#conflict-fix').onclick = async () => {
+  const b = $('#conflict-fix'); b.disabled = true; b.textContent = 'Fixing…';
+  const r = await api.fixConflicts(cd.dataset.inst);
+  $('#conflict-status').textContent = '';
+  if (r.error) { b.disabled = false; b.textContent = 'Try again'; return toast(r.error); }
+  const done = $('#conflict-actions-done');
+  if (r.fixed) {
+    $('#conflict-title').textContent = 'Fixed';
+    $('#conflict-intro').textContent = 'Here’s what changed:';
+    $('#conflict-list').replaceChildren(...r.actions.map((t) => h('li', { textContent: t })));
+    done.hidden = true; b.hidden = true; $('#conflict-anyway').hidden = true;
+    $('#conflict-play').hidden = false;
+  } else {
+    $('#conflict-intro').textContent = r.actions.length ? `Fixed some of it (${r.actions.join(' ')}). Still a problem:` : 'It couldn’t find a combination that works. Still a problem:';
+    $('#conflict-list').replaceChildren(...r.problems.map((t) => h('li', { textContent: t })));
+    b.hidden = true;
+  }
+  render();
+};
+api.on('compat:step', (label) => { $('#conflict-status').textContent = label; });
+
 $('#btn-play').onclick = launch;
 $('#btn-folder').onclick = () => inst() && api.openInstance(inst().id);
 $('#btn-log').onclick = () => { $('#log-drawer').hidden = !$('#log-drawer').hidden; };
@@ -305,7 +349,9 @@ const KIND = {
   mod:          { title: 'Mods',           one: 'mod',           search: 'Search Modrinth for mods',           installed: 'Installed mods' },
   resourcepack: { title: 'Resource packs', one: 'resource pack', search: 'Search Modrinth for resource packs', installed: 'Installed packs' },
   shader:       { title: 'Shaders',        one: 'shader pack',   search: 'Search Modrinth for shader packs',   installed: 'Installed shaders' },
+  crooli:       { title: 'Crooli’s mods',  one: 'mod',           search: '',                                    installed: 'Installed mods' },
 };
+const lk = () => (kind === 'crooli' ? 'mod' : kind); // which list the Installed column shows
 let kind = 'mod', searchSeq = 0, installedList = [];
 
 function noteFor(i) {
@@ -322,6 +368,7 @@ async function refreshMods() {
   $('#mod-q').placeholder = KIND[kind].search;
   $('#add-file').disabled = $('#add-folder').disabled = !i;
   $('#shader-hint').hidden = true;
+  if (kind === 'crooli') return refreshCrooli(i);
   const blocked = !i || (kind !== 'resourcepack' && i.loader !== 'fabric');
   $('#mod-search').hidden = blocked;
   if (blocked) {
@@ -348,23 +395,23 @@ const kindLabel = (f) => f.file.replace(/\.jar(\.disabled)?$/, '').replace(/\.zi
 function renderInstalled(files) {
   installedList = files;
   const box = $('#mod-installed'); box.replaceChildren();
-  if (!files.length) return box.append(h('div', { className: 'empty', textContent: kind === 'mod' ? 'No mods yet. Install some from the list, or add your own.' : `No ${KIND[kind].one}s yet.` }));
-  const on = kind === 'mod' ? ['Turn off', 'Turn on'] : ['Turn off', 'Use'];
+  if (!files.length) return box.append(h('div', { className: 'empty', textContent: lk() === 'mod' ? 'No mods yet. Install some from the list, or add your own.' : `No ${KIND[lk()].one}s yet.` }));
+  const on = lk() === 'mod' ? ['Turn off', 'Turn on'] : ['Turn off', 'Use'];
   files.forEach((f) => {
     const toggle = h('button', { className: 'link quiet', textContent: f.enabled ? on[0] : on[1] });
     toggle.onclick = async () => {
-      const r = await api.togglePack(inst().id, kind, f.file);
+      const r = await api.togglePack(inst().id, lk(), f.file);
       if (r.error) return toast(r.error);
       renderInstalled(r.list);
     };
     const rm = h('button', { className: 'link quiet danger', textContent: 'Remove' });
     rm.onclick = async () => {
-      const r = await api.removePack(inst().id, kind, f.file);
+      const r = await api.removePack(inst().id, lk(), f.file);
       if (r.error) return toast(r.error);
       renderInstalled(r.list);
     };
-    box.append(h('div', { className: 'row' + (f.enabled || kind !== 'mod' ? '' : ' off') },
-      h('div', { className: 'info' }, h('div', { className: 't', title: f.file, textContent: kindLabel(f) }), kind !== 'mod' ? h('div', { className: 'd', textContent: f.enabled ? 'In use' : 'Not in use' }) : null),
+    box.append(h('div', { className: 'row' + (f.enabled || lk() !== 'mod' ? '' : ' off') },
+      h('div', { className: 'info' }, h('div', { className: 't', title: f.file, textContent: kindLabel(f) }), lk() !== 'mod' ? h('div', { className: 'd', textContent: f.enabled ? 'In use' : 'Not in use' }) : null),
       h('div', { className: 'acts' }, toggle, rm)));
   });
 }
@@ -408,6 +455,45 @@ async function runSearch() {
 }
 $('#mod-search').onsubmit = (e) => { e.preventDefault(); runSearch(); };
 document.querySelectorAll('#kind-tabs .subtab').forEach((b) => (b.onclick = () => { kind = b.dataset.kind; $('#mod-q').value = ''; refreshMods(); }));
+
+// ---- Crooli's mods: pulled live from xandertaylorx.github.io/minecraft-mods ----
+async function refreshCrooli(i) {
+  $('#mod-search').hidden = true;
+  $('#mods-note').textContent = 'Free mods and a shader pack by Crooli, read live from xandertaylorx.github.io/minecraft-mods, so new ones show up here by themselves. They run on Fabric, and Fabric API is installed with them.';
+  const box = $('#mod-results');
+  box.replaceChildren(h('div', { className: 'empty', textContent: 'Loading the list…' }));
+  const [r, mods, shaders] = await Promise.all([api.crooliMods(), i ? api.listPacks(i.id, 'mod') : [], i ? api.listPacks(i.id, 'shader') : []]);
+  if (i) renderInstalled(mods);
+  else $('#mod-installed').replaceChildren();
+  if (kind !== 'crooli') return;
+  box.replaceChildren();
+  if (r.error) return box.append(h('div', { className: 'empty', textContent: `Couldn't load the list. ${r.error}` }));
+  const have = new Set([...mods, ...shaders].map((f) => f.file.replace(/\.disabled$/, '')));
+  r.mods.forEach((m) => {
+    let label = 'Install', why = '';
+    if (!i) { label = 'No installation'; why = 'Create an installation first.'; }
+    else if (i.loader !== 'fabric') { label = 'Needs Fabric'; why = `${i.name} is Vanilla. Make a Fabric installation to use these.`; }
+    else if (m.mc && m.mc !== i.mc) { label = `Needs ${m.mc}`; why = `${m.name} is built for Minecraft ${m.mc}; ${i.name} is ${i.mc}.`; }
+    if (i && have.has(m.file)) { label = 'Installed'; why = ''; }
+    const btn = h('button', { className: 'mc-btn small green', textContent: label, title: why });
+    btn.disabled = label !== 'Install';
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Installing…';
+      const res = await api.installCrooliMod(i.id, m.id);
+      if (res.error) { toast(res.error); btn.disabled = false; btn.textContent = 'Install'; return; }
+      btn.textContent = 'Installed';
+      toast(`Installed ${m.name}${res.notes.length ? '. ' + res.notes[0] : ''}`);
+      renderInstalled(await api.listPacks(i.id, 'mod'));
+    };
+    box.append(h('div', { className: 'row' },
+      m.icon ? h('img', { src: m.icon, alt: '' }) : h('div', { className: 'ph' }),
+      h('div', { className: 'info' },
+        h('div', { className: 't' }, m.name, h('span', { className: 'badge', textContent: [m.version, m.kind === 'shader' ? 'Shader pack' : m.category].filter(Boolean).join(' · ') })),
+        h('div', { className: 'd', textContent: m.description, title: m.description }),
+        h('div', { className: 'd', textContent: `Minecraft ${m.mc || '?'}, ${m.loader}${why ? ' · ' + why : ''}` })),
+      h('div', { className: 'acts' }, btn)));
+  });
+}
 
 // Iris is what runs shader packs on Fabric. This installs it with Sodium, which it needs.
 $('#install-iris').onclick = async () => {

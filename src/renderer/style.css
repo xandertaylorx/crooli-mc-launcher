@@ -255,3 +255,11 @@ dialog.sheet::backdrop { background: rgba(10, 11, 14, .66); }
 .found-options .row2 label { flex-direction: column; align-items: flex-start; gap: 5px; font-weight: 700; flex: 1; min-width: 180px; }
 .found-options .row2 input, .found-options .row2 select { width: 100%; }
 .found-options .go { display: flex; align-items: center; gap: 14px; }
+.search[hidden] { display: none; }
+
+.conflicts { margin: 0; padding: 0 0 0 20px; display: grid; gap: 8px; }
+.conflicts li { line-height: 1.4; }
+.conflicts li::marker { color: #e8bf4a; }
+#conflict-actions-done { padding: 10px 12px; border-radius: 6px; background: #2f4a26; color: var(--text); }
+#conflict-actions-done[hidden] { display: none; }
+.sheet-foot { flex-wrap: wrap; }

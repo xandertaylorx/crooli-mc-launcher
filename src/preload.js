@@ -7,7 +7,7 @@ contextBridge.exposeInMainWorld('api', {
   saveInstance: call('instance:save'),
   deleteInstance: call('instance:delete'),
   openInstance: call('instance:open'),
-  launch: call('game:launch'),
+  launch: (id, opts) => ipcRenderer.invoke('game:launch', id, opts),
   kill: call('game:kill'),
   cancelLaunch: call('game:cancel'),
   searchPacks: call('packs:search'),
@@ -35,5 +35,8 @@ contextBridge.exposeInMainWorld('api', {
   scanImports: call('import:scan'),
   scanImportFolder: call('import:folder'),
   runImport: call('import:run'),
+  crooliMods: call('crooli:list'),
+  installCrooliMod: (id, modId) => ipcRenderer.invoke('crooli:install', { id, modId }),
+  fixConflicts: call('compat:fix'),
   on: (ch, fn) => ipcRenderer.on(ch, (_e, p) => fn(p)),
 });
