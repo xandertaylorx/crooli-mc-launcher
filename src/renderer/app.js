@@ -209,6 +209,7 @@ function renderPlayButton() {
   b.querySelector('.l1').textContent = l1; $('#play-l2').textContent = l2;
   b.disabled = state === 'running' || state === 'cancelling';
   b.classList.toggle('cancel', state === 'preparing');
+  b.classList.toggle('playing', state === 'running'); // yellow while the game is open
 }
 
 function renderInstances() {

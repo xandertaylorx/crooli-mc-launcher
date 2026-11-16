@@ -482,3 +482,8 @@ h1, h2, h3, .page-head h1, .page > h2, .pane.side h2, .srv-head h2, .srv-form h2
 .srv-tunnel[hidden] { display: none; }
 .srv-tunnel .hint { color: var(--dim); font-size: 13px; }
 .tunnel-warn { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--warn); font-size: 13.5px; }
+
+/* while the game is running, the big button turns yellow */
+#btn-play.playing, #btn-play.playing:disabled { background: #d6a516; color: #2b2100; text-shadow: 1px 1px 0 rgba(255, 255, 255, .35); opacity: 1; animation: playing-pulse 2.4s ease-in-out infinite; }
+@keyframes playing-pulse { 50% { background: #e8b82a; } }
+@media (prefers-reduced-motion: reduce) { #btn-play.playing { animation: none; } }
