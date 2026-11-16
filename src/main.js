@@ -20,6 +20,7 @@ const servers = require('./core/servers');
 const updatesMod = require('./core/updates');
 const crash = require('./core/crash');
 const loaders = require('./core/loaders');
+const tunnel = require('./core/tunnel');
 
 let win, game = null;
 const send = (ch, p) => win && !win.isDestroyed() && win.webContents.send(ch, p);
@@ -59,6 +60,7 @@ app.on('before-quit', (e) => {
   if (!servers.isRunning() || stoppingServers) return;
   e.preventDefault();
   stoppingServers = true;
+  tunnel.stopAll();
   servers.stopAll(send).finally(() => app.quit());
 });
 
@@ -298,6 +300,8 @@ ipcMain.handle('packs:pick', async (_e, { id, folder }) => {
 ipcMain.handle('packs:add', (_e, { id, paths }) => addPaths(id, (paths || []).filter((p) => typeof p === 'string')));
 
 // ---- servers ----
+// Server events go to the window; a server that stops also closes its tunnel.
+const sendSrv = (ch, p) => { send(ch, p); if (ch === 'server:state' && p && p.state === 'stopped') tunnel.stop(p.id, send); };
 const getSrv = id => (store.load().servers || []).find(s => s.id === id);
 const clampInt = (v, lo, hi, d) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : d; };
 
@@ -328,7 +332,7 @@ ipcMain.handle('servers:save', (_e, input) => {
 });
 
 ipcMain.handle('servers:delete', async (_e, id) => {
-  await servers.stop(id, send);
+  await servers.stop(id, sendSrv);
   const s = store.load();
   s.servers = (s.servers || []).filter(x => x.id !== id);
   if (s.selectedServer === id) s.selectedServer = s.servers[0] ? s.servers[0].id : null;
@@ -340,10 +344,10 @@ ipcMain.handle('servers:delete', async (_e, id) => {
 ipcMain.handle('servers:start', async (_e, id) => {
   const srv = getSrv(id);
   if (!srv) return { error: 'Pick a server first.' };
-  try { await servers.start(srv, send, { javaOverride: store.load().javaPath || null }); return { ok: true }; }
+  try { await servers.start(srv, sendSrv, { javaOverride: store.load().javaPath || null }); return { ok: true }; }
   catch (e) { return { error: e.message }; }
 });
-ipcMain.handle('servers:stop', async (_e, id) => { await servers.stop(id, send); return { ok: true }; });
+ipcMain.handle('servers:stop', async (_e, id) => { await servers.stop(id, sendSrv); return { ok: true }; });
 ipcMain.handle('servers:command', (_e, { id, text }) => {
   try { servers.command(id, text); return { ok: true }; } catch (e) { return { error: e.message }; }
 });
@@ -428,6 +432,29 @@ ipcMain.handle('servers:mods-pick', async (_e, id) => {
   const results = packs.addLocal(srvDir(id), r.filePaths, { loader: x.type });
   return { results, list: packs.list(srvDir(id), 'mod', x.mc) };
 });
+// Save the whole server as a zip, to put on a real server host. The person picks where it goes.
+ipcMain.handle('servers:export', async (_e, id) => {
+  const srv = getSrv(id); if (!srv) return { error: 'Pick a server first.' };
+  if (servers.status(id).state !== 'stopped') return { error: 'Stop the server first, so the world is saved before it’s copied.' };
+  const safe = (srv.name || 'server').replace(/[^\w .-]+/g, '').trim() || 'server';
+  const r = await dialog.showSaveDialog(win, { title: 'Save the server as a zip', defaultPath: path.join(app.getPath('documents'), `${safe}.zip`), filters: [{ name: 'Zip file', extensions: ['zip'] }] });
+  if (r.canceled || !r.filePath) return { canceled: true };
+  const dest = r.filePath.endsWith('.zip') ? r.filePath : r.filePath + '.zip';
+  try {
+    const res = await servers.exportZip(srv, dest);
+    shell.showItemInFolder(dest);
+    return { ok: true, file: dest, bytes: res.bytes };
+  } catch (e) { try { fs.rmSync(dest, { force: true }); } catch {} return { error: `Couldn’t save the zip: ${e.message}` }; }
+});
+// ---- a tunnel, so friends outside your Wi-Fi can join without port forwarding ----
+ipcMain.handle('tunnel:start', async (_e, id) => {
+  const srv = getSrv(id); if (!srv) return { error: 'Pick a server first.' };
+  if (servers.status(id).state !== 'running') return { error: 'Start the server first, then share it.' };
+  tunnel.start(id, srv.port || 25565, send); // reports progress through server:tunnel
+  return { ok: true };
+});
+ipcMain.handle('tunnel:stop', (_e, id) => { tunnel.stop(id, send); return { ok: true }; });
+ipcMain.handle('tunnel:get', (_e, id) => tunnel.get(id));
 ipcMain.handle('servers:open', (_e, { id, sub }) => {
   const where = { world: 'world', mods: 'mods' }[sub] || '';
   const p = path.join(servers.dirOf(id), where);

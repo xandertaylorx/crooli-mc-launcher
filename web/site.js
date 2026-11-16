@@ -243,3 +243,36 @@ document.querySelectorAll('.theme-toggle').forEach((b) =>
   }),
 )
 applyTheme(currentTheme())
+
+
+/* ---------------- footer: a pixel grass strip and dirt, full width ---------------- */
+;(() => {
+  const cv = document.querySelector('.foot-bg')
+  if (!cv) return
+  const rng = (seed) => () => (seed = (seed * 16807) % 2147483647) / 2147483647
+  function paint() {
+    const T = 6 // size of one pixel, in CSS pixels
+    const r = cv.getBoundingClientRect()
+    const cols = Math.ceil(r.width / T), rows = Math.ceil(r.height / T)
+    cv.width = cols; cv.height = rows
+    const g = cv.getContext('2d'), rand = rng(11)
+    const dark = document.documentElement.dataset.theme === 'dark', k = dark ? 0.78 : 1
+    const rgb = (R, G, B, v = 1) => `rgb(${Math.round(R * v * k)},${Math.round(G * v * k)},${Math.round(B * v * k)})`
+    for (let x = 0; x < cols; x++) {
+      const top = 2 + Math.floor(rand() * 3) // a ragged grass edge
+      const grass = 4 + (rand() > 0.6 ? 1 : 0)
+      for (let y = top; y < rows; y++) {
+        const d = y - top
+        let col
+        if (d < grass) col = rgb(95, 168, 58, 0.78 + rand() * 0.3)
+        else if (d < grass + 2 && rand() > 0.55) col = rgb(95, 168, 58, 0.6 + rand() * 0.2) // grass hanging down
+        else { const v = 0.62 + rand() * 0.34, speck = rand() > 0.93 ? 0.68 : 1; col = rgb(134, 96, 62, v * speck) }
+        g.fillStyle = col; g.fillRect(x, y, 1, 1)
+      }
+    }
+  }
+  paint()
+  let t
+  addEventListener('resize', () => { clearTimeout(t); t = setTimeout(paint, 120) })
+  new MutationObserver(paint).observe(document.documentElement, { attributes: true, attributeFilter: ['data-theme'] })
+})()

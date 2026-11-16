@@ -133,6 +133,7 @@ setInterval(() => drawScene(performance.now()), 60000); // keep time of day curr
 
 // ================= light / dark, like the Crooli websites =================
 function applyTheme(t) {
+  if (typeof CROOLI_LIGHT_MODE === 'undefined' || !CROOLI_LIGHT_MODE) t = 'dark'; // light mode is switched off for now (see theme-init.js)
   document.documentElement.dataset.theme = t;
   const b = $('#theme-toggle');
   b.setAttribute('aria-pressed', String(t === 'dark'));
@@ -726,7 +727,8 @@ function renderSrvDetail(addr) {
   $('#srv-mods-link').hidden = sel.type === 'vanilla';
   $('#srvtab-mods').hidden = sel.type === 'vanilla';
   if (sel.type === 'vanilla' && srvTab === 'mods') showSrvTab('console');
-  $('#srv-delete').disabled = busy;
+  renderTunnel();
+  $('#srv-delete').disabled = busy; $('#srv-export').disabled = st.state !== 'stopped';
   if (st.state !== 'running') $('#srv-addr').replaceChildren();
   else if (addr) {
     const a = $('#srv-addr'); a.replaceChildren();
@@ -803,6 +805,15 @@ $('#srv-form').onsubmit = async (e) => {
   await selectServer();
   toast(isNew ? 'Server created. Press Start when you’re ready.' : 'Saved. Changes apply next time it starts.');
 };
+$('#srv-export').onclick = async () => {
+  const sel = srvSel(); if (!sel) return;
+  const b = $('#srv-export'); b.disabled = true; b.textContent = 'Zipping…';
+  const r = await api.exportServer(sel.id);
+  b.disabled = false; b.textContent = 'Export as zip';
+  if (r.canceled) return;
+  if (r.error) return toast(r.error);
+  toast(`Saved ${Math.round(r.bytes / 1048576) || '<1'} MB. It’s selected in your files.`);
+};
 $('#srv-edit').onclick = () => openServerForm(srvSel());
 $('#srv-delete').onclick = async () => {
   const sel = srvSel(); if (!sel) return;
@@ -828,6 +839,34 @@ $('#srv-cmd').onsubmit = async (e) => {
   const r = await api.serverCommand(sel.id, text);
   if (r.error) toast(r.error); else { $('#srv-input').value = ''; if (cmdHistory[0] !== text) cmdHistory.unshift(text); histAt = -1; }
 };
+// ----- share over the internet (a tunnel) -----
+const tunnels = {};   // server id -> { state, address, error }
+function renderTunnel() {
+  const box = $('#srv-tunnel'), sel = srvSel();
+  const running = sel && (srvStates[sel.id] || {}).state === 'running';
+  box.hidden = !running; box.replaceChildren();
+  if (!running) return;
+  const t = tunnels[sel.id] || { state: 'off' };
+  if (t.state === 'off' || t.state === 'error') {
+    const b = h('button', { className: 'mc-btn small', type: 'button', textContent: 'Share over the internet' });
+    b.onclick = async () => { b.disabled = true; const r = await api.startTunnel(sel.id); if (r.error) { b.disabled = false; toast(r.error); } };
+    box.append(b, h('span', { className: 'hint', textContent: t.error ? t.error : 'Friends outside your Wi-Fi can join with an address you copy. No router settings.' }));
+  } else if (t.state === 'starting') {
+    box.append(h('span', { className: 'hint', textContent: 'Opening a tunnel…' }));
+  } else {
+    const copy = h('button', { type: 'button', textContent: 'Copy' });
+    copy.onclick = () => { navigator.clipboard.writeText(t.address); copy.textContent = 'Copied'; setTimeout(() => (copy.textContent = 'Copy'), 1500); };
+    box.append(h('span', { className: 'addr' }, 'Anywhere ', h('code', { textContent: t.address }), copy),
+      h('button', { className: 'link quiet', type: 'button', textContent: 'Stop sharing', onclick: () => api.stopTunnel(sel.id) }));
+    if (!wlCache.on) {
+      const on = h('button', { className: 'mc-btn small green', type: 'button', textContent: 'Turn on whitelist' });
+      on.onclick = async () => { const r = await api.setServerOption(sel.id, 'whitelist', true); if (r.error) return toast(r.error); wlCache.on = true; toast('Whitelist is on. Add your friends on the Players tab.'); renderTunnel(); };
+      box.append(h('p', { className: 'tunnel-warn' }, 'Anyone who gets this address can try to join. ', on));
+    }
+  }
+}
+api.on('server:tunnel', (t) => { tunnels[t.id] = t; renderTunnel(); });
+
 // ----- console: tab-completion and history -----
 let wlCache = { names: [], on: false };
 const cmdHistory = []; let histAt = -1;

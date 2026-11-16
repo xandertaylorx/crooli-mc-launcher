@@ -23,7 +23,7 @@ npm run dist:win   # .exe installer (best built on Windows)
 - **Mod compatibility**: before Play it reads each mod's own rules and refuses to start a game Fabric would reject, explaining the problem and offering to fix it (it tries other builds of the mods involved). Installs prefer stable releases, and an install that would break your set is taken back out.
 - **Mods, resource packs and shaders**: search Modrinth filtered to your version and loader, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders), with an **Update all** button that only keeps an update if your mods still work together. Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.
 - **Crooli's mods**: a tab on the Mods page listing the mods and shader pack from xandertaylorx.github.io/minecraft-mods, read live from that page.
-- **Servers**: create a Minecraft server (Vanilla, Fabric, Quilt, NeoForge or Forge) with one click, start and stop it, run commands in a console that completes them as you type, keep a whitelist (a switch plus add-by-name), flip settings like PvP and command blocks any time, edit every setting in `server.properties`, add server mods from Modrinth, copy the address to share, and open its folders.
+- **Servers**: create a Minecraft server (Vanilla, Fabric, Quilt, NeoForge or Forge) with one click, start and stop it, run commands in a console that completes them as you type, keep a whitelist (a switch plus add-by-name), flip settings like PvP and command blocks any time, edit every setting in `server.properties`, add server mods from Modrinth, copy the address to share, **share over the internet** with one click (a tunnel through `bore.pub`, no account or router settings; the address changes each time), and open its folders. **Export as zip** saves the whole server (world, mods, settings, start scripts) wherever you choose, ready for a real server host.
 - **Skins**: load a PNG or copy a player's, with a 3D preview you can turn. Because the account is offline, it's applied as a resource pack when the game starts.
 - **Import**: finds installs from the Minecraft Launcher, Prism, MultiMC, CurseForge, Modrinth App and others (or any folder you point it at) and copies worlds, mods, packs and settings into a new installation. The originals are never changed.
 - **Updates**: checks GitHub on start and every 6 hours, downloads a new version in the background (checked against GitHub's checksum) and installs it when you close the launcher, or right away with Restart and update. On Mac the launcher replaces its own app, since Apple only allows the standard updater for apps signed with a paid certificate.
@@ -37,7 +37,6 @@ Set `CROOLI_HOME=/some/dir` to use a different folder.
 
 - Microsoft login (needs an Azure app registration — client ID)
 - Modpacks, CurseForge
-- A tunnel so friends outside your Wi-Fi can join a server without port forwarding
 - Microsoft skins and capes
 - Server plugins (Paper and similar)
 
@@ -48,6 +47,18 @@ Live at https://mclauncher.crooli.com. The page lives in `web/` (plain static HT
 ## License
 
 MIT. Not affiliated with Mojang or Microsoft.
+
+## Install with one line
+
+```bash
+curl -fsSL https://mclauncher.crooli.com/install.sh | bash   # macOS: downloads, checks, installs in Applications, clears the unsigned flag, opens it
+```
+
+```powershell
+irm https://mclauncher.crooli.com/install.ps1 | iex   # Windows
+```
+
+The scripts live in `web/` and read the latest release from GitHub.
 
 ## Updates and releases
 

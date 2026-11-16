@@ -102,6 +102,47 @@ function writeAllProperties(id, values) {
   fs.writeFileSync(file, out.filter((l, i) => l || i < out.length - 1).join('\n') + '\n');
 }
 
+// ---------- export ----------
+// Zips the server so it can be put on a real server host: the world, mods, settings and the jars, plus start scripts.
+// Logs, crash reports, the installer we used and lock files are left out.
+const SKIP = /^(logs|crash-reports|\.installers|\.crooli-.*|\.DS_Store)$|session\.lock$/;
+function startScripts(srv) {
+  let launch = ['-jar', 'server.jar', 'nogui'];
+  try { launch = JSON.parse(fs.readFileSync(path.join(dirOf(srv.id), '.crooli-server.json'), 'utf8')).launch || launch; } catch {}
+  const ram = srv.ram || 2048, mem = `-Xmx${ram}M -Xms${Math.min(1024, ram)}M`;
+  const unix = launch.join(' '), win = unix.replace('unix_args.txt', 'win_args.txt');
+  const sh = `#!/bin/sh\ncd "$(dirname "$0")"\njava ${mem} ${unix}\n`;
+  const bat = `@echo off\r\ncd /d "%~dp0"\r\njava ${mem} ${win}\r\npause\r\n`;
+  const readme = `${srv.name}\r\nMinecraft ${srv.mc} (${srv.type})\r\n\r\nTo run this server:\r\n1. Install Java (21 for recent Minecraft versions, 17 for 1.18 to 1.20.4, 8 for older ones).\r\n2. Run start.sh (Mac and Linux) or start.bat (Windows).\r\n\r\nThe Minecraft EULA was accepted when you made the server in Crooli MC Launcher (eula.txt). Settings are in server.properties.\r\nIf your host has its own start command, use the same Java arguments as in start.sh.\r\n`;
+  return { sh, bat, readme };
+}
+function exportZip(srv, dest, onProgress = () => {}) {
+  const archiver = require('archiver');
+  const dir = dirOf(srv.id), top = (srv.name || 'server').replace(/[^\w .-]+/g, '').trim() || 'server';
+  return new Promise((resolve, reject) => {
+    const out = fs.createWriteStream(dest);
+    const zip = archiver('zip', { zlib: { level: 6 } });
+    out.on('close', () => resolve({ bytes: zip.pointer() }));
+    out.on('error', reject); zip.on('error', reject);
+    zip.on('progress', (p) => onProgress(p.entries.processed, p.entries.total));
+    zip.pipe(out);
+    const walk = (rel) => {
+      for (const e of fs.readdirSync(path.join(dir, rel), { withFileTypes: true })) {
+        if (SKIP.test(e.name)) continue;
+        const r = path.join(rel, e.name);
+        if (e.isDirectory()) walk(r);
+        else if (e.isFile()) zip.file(path.join(dir, r), { name: path.posix.join(top, ...r.split(path.sep)) });
+      }
+    };
+    walk('');
+    const sc = startScripts(srv);
+    zip.append(sc.sh, { name: `${top}/start.sh`, mode: 0o755 });
+    zip.append(sc.bat, { name: `${top}/start.bat` });
+    zip.append(sc.readme, { name: `${top}/README.txt` });
+    zip.finalize();
+  });
+}
+
 // ---------- whitelist ----------
 const wlFile = (id) => path.join(dirOf(id), 'whitelist.json');
 function readWhitelist(id) {
@@ -317,4 +358,4 @@ const status = (id) => {
   return { state: r ? r.state : 'stopped', players: r ? [...r.players] : [], log: logs.get(id) || [] };
 };
 
-module.exports = { readAllProperties, writeAllProperties, dirOf, writeEula, writeProperties, readOptions, readWhitelist, whitelistAdd, whitelistRemove, applyLive, setProperty, start, stop, stopAll, command, status, addresses, isRunning };
+module.exports = { exportZip, readAllProperties, writeAllProperties, dirOf, writeEula, writeProperties, readOptions, readWhitelist, whitelistAdd, whitelistRemove, applyLive, setProperty, start, stop, stopAll, command, status, addresses, isRunning };

@@ -27,8 +27,10 @@
 
 <header class="topbar">
   <a class="brand" href="/" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span class="product">MC Launcher</span></a>
+  <p class="topnote">Plays offline: no Microsoft sign-in needed</p>
   <nav class="pillnav" aria-label="Main">
     <a href="/#how">How it works</a>
+    <a href="/#features">Features</a>
     <a href="/downloads" aria-current="page">Download</a>
     <a href="https://github.com/xandertaylorx/crooli-mc-launcher" rel="noopener">GitHub</a>
     <button class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
@@ -66,6 +68,25 @@
   </section>
   <p class="fine center which">Not sure which Mac you have? Open the Apple menu, choose <b>About This Mac</b>, and look for <b>Chip</b> (Apple Silicon) or <b>Processor</b> (Intel).</p>
 
+  <!-- 2b. One line -->
+  <section class="oneline">
+    <h2 class="h2 center">Or install it with one line.</h2>
+    <p class="lede center">Paste it into Terminal (Mac) or PowerShell (Windows). It also clears the “unsigned app” prompt for you.</p>
+    <div class="installs">
+      <div class="cmdline">
+        <span class="tag">macOS</span>
+        <code id="d-mac">curl -fsSL https://mclauncher.crooli.com/install.sh | bash</code>
+        <button class="copy" type="button" data-copy="#d-mac"><span class="lbl">Copy</span></button>
+      </div>
+      <div class="cmdline">
+        <span class="tag">Windows</span>
+        <code id="d-win">irm https://mclauncher.crooli.com/install.ps1 | iex</code>
+        <button class="copy" type="button" data-copy="#d-win"><span class="lbl">Copy</span></button>
+      </div>
+    </div>
+    <p class="fine">One line: it downloads the latest version from GitHub, checks it, puts it in Applications (Mac) or runs the installer (Windows), and opens it. <a href="/install.sh">Read the Mac script</a> or <a href="/install.ps1">the Windows one</a> first if you like.</p>
+  </section>
+
   <!-- 3. First launch -->
   <section class="first">
     <h2 class="h2 center">Opening it the first time.</h2>
@@ -73,7 +94,7 @@
     <div class="first-cols">
       <div>
         <h3>On a Mac</h3>
-        <p>Drag the app into Applications. If macOS says it’s damaged or can’t be opened, paste this into Terminal once:</p>
+        <p>Easiest: use the one-line install above. Or drag the app into Applications, and if macOS says it’s damaged or can’t be opened, paste this into Terminal once:</p>
         <div class="cmdline">
           <code id="cmd-xattr">xattr -cr "/Applications/Crooli MC Launcher.app"</code>
           <button class="copy" type="button" data-copy="#cmd-xattr"><span class="lbl">Copy</span></button>
@@ -107,12 +128,16 @@
 </main>
 
 <footer class="foot">
-  <span>Crooli MC Launcher. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
-  <nav aria-label="Links">
-    <a href="/">Home</a>
-    <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
-    <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
-  </nav>
+  <canvas class="foot-bg" aria-hidden="true"></canvas>
+  <div class="foot-in">
+    <a class="foot-brand" href="/" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span>MC Launcher</span></a>
+    <nav aria-label="Links">
+      <a href="/downloads">Downloads</a>
+      <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
+      <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
+    </nav>
+    <p>Free and open source (MIT). Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+  </div>
 </footer>
 
 <script src="/site.js"></script>

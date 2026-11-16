@@ -477,3 +477,8 @@ h1, h2, h3, .page-head h1, .page > h2, .pane.side h2, .srv-head h2, .srv-form h2
 #srvp-mods .split > div:last-child { overflow-y: auto; min-height: 0; }
 .sm-h { font: 700 15px var(--display); margin-bottom: 10px; }
 #sm-results { height: 100%; max-height: none; }
+
+.srv-tunnel { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
+.srv-tunnel[hidden] { display: none; }
+.srv-tunnel .hint { color: var(--dim); font-size: 13px; }
+.tunnel-warn { flex-basis: 100%; margin: 0; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; color: var(--warn); font-size: 13.5px; }

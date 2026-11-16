@@ -27,8 +27,10 @@
 
 <header class="topbar">
   <a class="brand" href="#top" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span class="product">MC Launcher</span></a>
+  <p class="topnote">Plays offline: no Microsoft sign-in needed</p>
   <nav class="pillnav" aria-label="Main">
     <a href="#how">How it works</a>
+    <a href="#features">Features</a>
     <a href="/downloads">Download</a>
     <a href="https://github.com/xandertaylorx/crooli-mc-launcher" rel="noopener">GitHub<span id="stars"></span></a>
     <button class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
@@ -41,7 +43,7 @@
   <section class="intro">
     <a class="ver" id="ver" href="/downloads" hidden><span class="dot" aria-hidden="true"></span><span>Version <span id="ver-num"></span> is out<span class="ver-date" id="ver-date"></span></span></a>
     <h1 class="display">Minecraft with mods,<br /><span class="dim">minus the fuss.</span></h1>
-    <p class="lede">A small launcher for Mac and Windows. Pick a version and press Play: it downloads the game and Java for you, and installs Fabric mods from Modrinth along with everything they need.</p>
+    <p class="lede">A small launcher for Mac and Windows. Pick a version and press Play: it downloads the game and Java, and installs mods for Fabric, Quilt, NeoForge and Forge from Modrinth.</p>
     <div class="cta">
       <a class="btn dark" id="hero-dl" href="/downloads">Download</a>
       <a class="ulink" href="https://github.com/xandertaylorx/crooli-mc-launcher">View the source</a>
@@ -58,7 +60,7 @@
 
   <dl class="facts">
     <div><dt>26.3 → 1.0</dt><dd>Every release, snapshots too</dd></div>
-    <div><dt>fabric</dt><dd>Mod loader, built in</dd></div>
+    <div><dt>4 loaders</dt><dd>Fabric, Quilt, NeoForge, Forge</dd></div>
     <div><dt>modrinth</dt><dd>Mods, packs and shaders</dd></div>
     <div><dt>servers</dt><dd>Host your own in a click</dd></div>
   </dl>
@@ -122,7 +124,7 @@
     <article class="feature">
       <div class="feature-text">
         <h3>Run a server for your friends.</h3>
-        <p>Pick a version and a loader and press Start. The launcher downloads Mojang’s server, agrees to the EULA when you create it, and gives you a console that completes commands as you type, like <code>op Steve</code> or <code>time set day</code>. Keep a whitelist with a switch and an add-by-name box, flip settings like PvP and command blocks whenever you want, edit every line of the properties file, add server mods from Modrinth, copy the address for this computer or your Wi-Fi, and open the world or mods folder.</p>
+        <p>Pick a version and a loader and press Start. The launcher downloads Mojang’s server, agrees to the EULA when you create it, and gives you a console that completes commands as you type, like <code>op Steve</code> or <code>time set day</code>. Keep a whitelist with a switch and an add-by-name box, flip settings like PvP and command blocks whenever you want, edit every line of the properties file, add server mods from Modrinth, copy the address for this computer or your Wi-Fi, share it over the internet in one click so friends outside your Wi-Fi can join with no router settings, export the whole server as a zip, and open the world or mods folder.</p>
       </div>
       <div class="feature-art panel">
         <canvas class="shader" data-mode="silk" data-palette="grass" aria-hidden="true"></canvas>
@@ -159,20 +161,75 @@
     </article>
   </section>
 
+  <!-- 4b. Everything else, with real screenshots -->
+  <section id="features" class="features">
+    <h2 class="h2 center">Everything it does.</h2>
+    <p class="lede center">Real screenshots of the launcher, not mock-ups.</p>
+    <div class="fgrid">
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-loaders.png" loading="lazy" alt="The Installations screen: installations on Fabric, Quilt, NeoForge, Forge and Vanilla beside the new installation form" /></figure>
+        <h3>Four mod loaders</h3>
+        <p>Make an installation with Fabric, Quilt, NeoForge or Forge. The launcher installs the loader for you, and each installation keeps its own worlds, mods and settings. Rename them any time.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-updates.png" loading="lazy" alt="The Mods screen with a bar saying 2 updates are available and an Update all button" /></figure>
+        <h3>Update all mods, safely</h3>
+        <p>One button finds newer builds of everything you have. Each update is kept only if your mods still work together; if one would break the set, it’s put back and you’re told why.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-crash.png" loading="lazy" alt="A window titled Minecraft ran out of memory with a button to give it 4 GB" /></figure>
+        <h3>A crash helper that explains</h3>
+        <p>When the game stops, you get a plain-words reason and the likely fix in one click: more memory, the right Java, or turning off the mod that broke it. Copy the details to ask for help.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-players.png" loading="lazy" alt="The player picker open, listing three players, with an add box" /></figure>
+        <h3>Switch between players</h3>
+        <p>Add several players and switch from the top right, each with their own skin. Microsoft accounts are on the way.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-console.png" loading="lazy" alt="The server console with a list of completions for “ga”: gamemode and gamerule" /></figure>
+        <h3>A console that completes commands</h3>
+        <p>Press Tab to finish a command, a sub-command or a player’s name. Up and down bring back earlier commands.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-whitelist.png" loading="lazy" alt="The Players tab: a Whitelist switch, an add box and four whitelisted players" /></figure>
+        <h3>A whitelist in a click</h3>
+        <p>A switch turns it on, an add box takes a name, and anyone online is one click away. On a running server it applies straight away.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-properties.png" loading="lazy" alt="The Properties tab: a filter box and a list of server settings with switches" /></figure>
+        <h3>Every server setting</h3>
+        <p>All of server.properties as a searchable list, with switches for on and off settings. The launcher keeps its own copy in step, so your edits stick.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-servermods.png" loading="lazy" alt="The server Mods tab: Modrinth search results beside the mods installed on the server" /></figure>
+        <h3>Mods on your server too</h3>
+        <p>Servers on Fabric, Quilt, NeoForge or Forge get a Mods tab that searches Modrinth for mods that run on a server. Export the whole server as a zip when you want to put it on a real host.</p>
+      </article>
+      <article class="fcard reveal">
+        <figure class="fshot"><img src="assets/feat-import.png" loading="lazy" alt="The import window listing installs found from other launchers" /></figure>
+        <h3>Bring your old installs</h3>
+        <p>It finds installs from the official launcher, Prism, MultiMC, CurseForge and others and copies worlds, mods and settings across. The originals are never changed.</p>
+      </article>
+    </div>
+  </section>
+
   <!-- 5. What comes with it -->
   <section class="included">
     <h2 class="h2 center">Nothing else to install.</h2>
     <p class="lede center">The launcher fetches all of this itself and checks every file it downloads.</p>
     <ul class="chips">
-      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Mod loaders</li><li>Log4j fix</li><li>Mod dependencies</li><li>Server jars</li><li>Iris for shaders</li>
+      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Mod loaders</li><li>Log4j fix</li><li>Mod dependencies</li><li>Server jars</li><li>Iris for shaders</li><li>NeoForge and Forge installers</li>
     </ul>
     <ul class="extras">
       <li><b>Cancel any time</b><span>Changed your mind while it downloads? Press Cancel and everything it fetched for that start is removed.</span></li>
-      <li><b>Updates itself</b><span>Checks GitHub for a new version and tells you. On Windows it installs after a restart.</span></li>
+      <li><b>Updates itself</b><span>Checks GitHub for a new version, downloads it and installs it when you close the launcher. On Mac and Windows.</span></li>
       <li><b>Game output</b><span>A side panel shows what the game is doing, in plain lines.</span></li>
       <li><b>Update notes</b><span>Mojang’s latest snapshot and release posts, on the Play screen.</span></li>
       <li><b>Your files</b><span>Every installation and server is a normal folder you can open and back up.</span></li>
       <li><b>Safe downloads</b><span>Every file is checked against its checksum before it’s used.</span></li>
+      <li><b>Export a server</b><span>Save a server as a zip with start scripts, ready for a real host.</span></li>
+      <li><b>Offline friendly</b><span>Singleplayer, LAN and offline-mode servers work with no sign-in.</span></li>
     </ul>
   </section>
 
@@ -184,22 +241,39 @@
       <a class="btn dark" id="dl-main" href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest">Download <small id="dl-size"></small></a>
       <a class="ulink" id="other-dl" href="/downloads">All downloads and versions</a>
     </div>
-    <div class="cmdline">
+    <div class="installs">
+      <div class="cmdline">
+        <span class="tag">macOS</span>
+        <code id="h-mac">curl -fsSL https://mclauncher.crooli.com/install.sh | bash</code>
+        <button class="copy" type="button" data-copy="#h-mac"><span class="lbl">Copy</span></button>
+      </div>
+      <div class="cmdline">
+        <span class="tag">Windows</span>
+        <code id="h-win">irm https://mclauncher.crooli.com/install.ps1 | iex</code>
+        <button class="copy" type="button" data-copy="#h-win"><span class="lbl">Copy</span></button>
+      </div>
+    </div>
+    <p class="fine">One line: it downloads the latest version from GitHub, checks it, puts it in Applications (Mac) or runs the installer (Windows), and opens it. <a href="/install.sh">Read the Mac script</a> or <a href="/install.ps1">the Windows one</a> first if you like.</p>
+    <div class="cmdline src">
       <span class="tag">Source</span>
       <code id="cmd-src">git clone https://github.com/xandertaylorx/crooli-mc-launcher &amp;&amp; cd crooli-mc-launcher &amp;&amp; npm install &amp;&amp; npm start</code>
       <button class="copy" type="button" data-copy="#cmd-src"><span class="lbl">Copy</span></button>
     </div>
-    <p class="fine" id="platform-note">Needs <a href="https://nodejs.org">Node.js</a> to run from source.</p>
+    <p class="fine" id="platform-note">Prefer to build it yourself? Needs <a href="https://nodejs.org">Node.js</a>.</p>
   </section>
 </main>
 
 <footer class="foot">
-  <span>Crooli MC Launcher. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
-  <nav aria-label="Links">
-    <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
-    <a href="/downloads">Downloads</a>
-    <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
-  </nav>
+  <canvas class="foot-bg" aria-hidden="true"></canvas>
+  <div class="foot-in">
+    <a class="foot-brand" href="#top" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span>MC Launcher</span></a>
+    <nav aria-label="Links">
+      <a href="/downloads">Downloads</a>
+      <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
+      <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
+    </nav>
+    <p>Free and open source (MIT). Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+  </div>
 </footer>
 
 <script src="site.js"></script>
