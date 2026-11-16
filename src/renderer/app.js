@@ -237,6 +237,8 @@ function renderInstances() {
       inp.onkeydown = ev => { if (ev.key === 'Enter') done(true); if (ev.key === 'Escape') done(false); };
       inp.onblur = () => done(true);
     };
+    const changeVer = h('button', { className: 'link quiet', textContent: 'Change version', title: 'Move this installation to another Minecraft version and keep its mods working' });
+    changeVer.onclick = e => { e.stopPropagation(); openVersionDialog(x); };
     const del = h('button', { className: 'link quiet danger', textContent: 'Delete' });
     del.onclick = async e => {
       e.stopPropagation();
@@ -246,7 +248,7 @@ function renderInstances() {
       h('div', { className: 'info' },
         h('div', { className: 't' }, x.name, h('span', { className: 'tag', textContent: loaderName(x) })),
         h('div', { className: 'd', textContent: `Minecraft ${x.mc}, ${gb(x.ram)} of memory` })),
-      h('div', { className: 'acts' }, folder, rename, del, play));
+      h('div', { className: 'acts' }, folder, rename, changeVer, del, play));
     list.append(row);
   });
 }
@@ -428,6 +430,71 @@ api.on('game:state', st => {
   if (st !== 'preparing' && st !== 'cancelling') $('#progress').hidden = true;
   renderPlayButton(); renderInstances();
 });
+
+// ----- change an installation's version, keeping its mods working -----
+const verDlg = $('#ver-dialog');
+let verInst = null, verSeq = 0, verReady = false;
+function fillVerSelect() {
+  const sel = $('#ver-select'), snaps = $('#ver-snap').checked;
+  sel.replaceChildren();
+  versions.filter((v) => v.type === 'release' || (snaps && v.type === 'snapshot') || v.id === verInst.mc)
+    .forEach((v) => sel.append(h('option', { value: v.id, textContent: v.id + (v.id === verInst.mc ? ' (current)' : ''), selected: v.id === verInst.mc })));
+}
+function openVersionDialog(inst) {
+  if (state !== 'idle') return toast('Close Minecraft first.');
+  verInst = inst;
+  $('#ver-title').textContent = `Change version of ${inst.name}`;
+  $('#ver-sub').textContent = `Now on Minecraft ${inst.mc}${isModded(inst) ? ` with ${loaderName(inst)}` : ''}. Its mods are moved to builds that match the new version, so you don’t need a new installation.`;
+  $('#ver-snap').checked = false; fillVerSelect();
+  $('#ver-summary').replaceChildren(); $('#ver-go').disabled = true; $('#ver-go').textContent = 'Change version';
+  verDlg.showModal(); verDlg.setAttribute('tabindex', '-1'); verDlg.focus();
+}
+async function checkVersion() {
+  const mc = $('#ver-select').value, box = $('#ver-summary'), go = $('#ver-go'), seq = ++verSeq;
+  verReady = false; go.disabled = true; go.textContent = 'Change version';
+  if (!verInst || mc === verInst.mc) { box.replaceChildren(h('p', { className: 'hint', textContent: 'Pick a different version.' })); return; }
+  box.replaceChildren(h('p', { className: 'hint', textContent: 'Checking your mods against that version…' }));
+  const r = await api.versionPlan(verInst.id, mc);
+  if (seq !== verSeq) return; // a newer choice replaced this one
+  box.replaceChildren();
+  if (r.error) return box.append(h('p', { className: 'ver-warn', textContent: r.error }));
+  if (r.unsupported) return box.append(h('p', { className: 'ver-warn', textContent: `${LOADER_NAMES[r.loader]} isn’t available for Minecraft ${mc} yet. Pick another version, or make a Vanilla installation.` }));
+  const p = r.plan, list = (title, items, cls) => {
+    box.append(h('div', { className: 'ver-block ' + (cls || '') }, h('b', { textContent: title }),
+      h('ul', {}, ...items.slice(0, 8).map((t) => h('li', { textContent: t })), items.length > 8 ? h('li', { className: 'more', textContent: `and ${items.length - 8} more` }) : '')));
+  };
+  if (!isModded(verInst)) box.append(h('p', { textContent: 'This installation has no mods, so only the version changes.' }));
+  else {
+    const n = p.updates.length;
+    if (n) list(`${n} ${n === 1 ? 'mod gets' : 'mods get'} a build for ${mc}`, p.updates.map((u) => `${u.title}  ${u.from} → ${u.to}`));
+    if (p.same) box.append(h('p', { className: 'hint', textContent: `${p.same} already ${p.same === 1 ? 'works' : 'work'} with ${mc} and stay as they are.` }));
+    if (p.adds) box.append(h('p', { className: 'hint', textContent: `${p.adds} extra required ${p.adds === 1 ? 'mod is' : 'mods are'} added.` }));
+    if (p.missing.length) list(`${p.missing.length} ${p.missing.length === 1 ? 'mod has' : 'mods have'} no build for ${mc} and will be turned off (not deleted)`, p.missing, 'warn');
+    if (p.unknown.length) list('Not from Modrinth, so left exactly as they are', p.unknown, 'hint');
+    if (!n && !p.missing.length && !p.unknown.length && !p.adds) box.append(h('p', { textContent: 'All its mods already work with that version.' }));
+  }
+  if (r.worlds) box.append(h('p', { className: r.older ? 'ver-warn' : 'hint', textContent: `${r.worlds === 1 ? 'Its world is' : `Its ${r.worlds} worlds are`} zipped into the installation’s backups folder first.` + (r.older ? ' Going back to an older version can damage worlds that a newer one has opened, and the backup is your way back.' : '') }));
+  verReady = true; go.disabled = false; go.textContent = r.older ? `Go back to ${mc}` : `Change to ${mc}`;
+}
+$('#ver-select').onchange = checkVersion;
+$('#ver-snap').onchange = () => { const keep = $('#ver-select').value; fillVerSelect(); if ([...$('#ver-select').options].some((o) => o.value === keep)) $('#ver-select').value = keep; checkVersion(); };
+$('#ver-cancel').onclick = () => verDlg.close();
+$('#ver-go').onclick = async () => {
+  if (!verReady || !verInst) return;
+  const mc = $('#ver-select').value, go = $('#ver-go');
+  go.disabled = true; $('#ver-select').disabled = true; $('#ver-cancel').disabled = true;
+  const r = await api.versionApply(verInst.id, mc);
+  $('#ver-select').disabled = false; $('#ver-cancel').disabled = false;
+  if (r.error) { go.disabled = false; go.textContent = 'Try again'; $('#ver-summary').append(h('p', { className: 'ver-warn', textContent: r.error })); return; }
+  S = r.settings; verDlg.close(); await render();
+  const x = r.result;
+  let msg = `${verInst.name} is now on Minecraft ${mc}.`;
+  if (x.updated) msg += ` ${x.updated} ${x.updated === 1 ? 'mod' : 'mods'} updated.`;
+  if (x.disabled.length) msg += ` ${x.disabled.length} turned off: ${x.disabled.slice(0, 3).join(', ')}${x.disabled.length > 3 ? '…' : ''}.`;
+  if (x.problems.length) msg += ` Still a problem: ${x.problems[0]}`;
+  toast(msg);
+};
+api.on('version:step', ({ label, done, total }) => { if (verDlg.open) $('#ver-go').textContent = label + (total ? `  ${done} of ${total}` : ''); });
 
 // ----- when the game crashes -----
 const crashDlg = $('#crash-dialog');

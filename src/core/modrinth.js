@@ -67,4 +67,4 @@ async function install(instDir, projectId, mc, loader, type = 'mod', _seen = new
   return { files: done, exact: found.exact };
 }
 
-module.exports = { search, install };
+module.exports = { search, install, latestVersion };

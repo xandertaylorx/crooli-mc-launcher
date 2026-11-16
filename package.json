@@ -1,7 +1,7 @@
 {
   "name": "crooli-mc-launcher",
   "productName": "Crooli MC Launcher",
-  "version": "0.6.3",
+  "version": "0.6.4",
   "description": "A simple, retro-styled Minecraft launcher",
   "main": "src/main.js",
   "scripts": {

@@ -342,6 +342,20 @@
     </div>
   </dialog>
 
+  <dialog id="ver-dialog" class="sheet" aria-labelledby="ver-title">
+    <div class="sheet-head"><h2 id="ver-title">Change version</h2></div>
+    <p id="ver-sub" class="sub"></p>
+    <div class="ver-pick">
+      <label>Minecraft version<select id="ver-select"></select></label>
+      <label class="check"><input id="ver-snap" type="checkbox">Include snapshots</label>
+    </div>
+    <div id="ver-summary" class="ver-summary" aria-live="polite"></div>
+    <div class="sheet-foot">
+      <button id="ver-go" class="mc-btn green" type="button" disabled>Change version</button>
+      <button id="ver-cancel" class="link quiet" type="button">Cancel</button>
+    </div>
+  </dialog>
+
   <dialog id="crash-dialog" class="sheet" aria-labelledby="crash-title">
     <div class="sheet-head"><h2 id="crash-title">Minecraft stopped unexpectedly</h2></div>
     <p id="crash-why" class="sub"></p>

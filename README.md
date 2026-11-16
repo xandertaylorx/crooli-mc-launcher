@@ -18,7 +18,7 @@ npm run dist:win   # .exe installer (best built on Windows)
 
 ## What it does
 
-- **Installations**: pick any Minecraft release or snapshot, with Vanilla, Fabric, Quilt, NeoForge or Forge, and set the memory. Each one has its own folder (worlds, mods, packs, settings), and you can rename it on the Installations page.
+- **Installations**: pick any Minecraft release or snapshot, with Vanilla, Fabric, Quilt, NeoForge or Forge, and set the memory. Each one has its own folder (worlds, mods, packs, settings), and you can rename it on the Installations page. **Change version** moves an installation to another Minecraft version (newer or older): each mod is swapped for the build that matches, mods with no build are turned off rather than deleted, and the worlds are zipped into a `backups` folder first.
 - **Downloads everything**: the game, libraries, assets and Mojang's own bundled Java. Press **Cancel** while it's getting files ready and everything that start downloaded is removed.
 - **Mod compatibility**: before Play it reads each mod's own rules and refuses to start a game Fabric would reject, explaining the problem and offering to fix it (it tries other builds of the mods involved). Installs prefer stable releases, and an install that would break your set is taken back out.
 - **Mods, resource packs and shaders**: search Modrinth filtered to your version and loader, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders), with an **Update all** button that only keeps an update if your mods still work together. Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.

@@ -21,6 +21,7 @@ const updatesMod = require('./core/updates');
 const crash = require('./core/crash');
 const loaders = require('./core/loaders');
 const tunnel = require('./core/tunnel');
+const versionChange = require('./core/versionchange');
 
 let win, game = null;
 const send = (ch, p) => win && !win.isDestroyed() && win.webContents.send(ch, p);
@@ -151,6 +152,41 @@ ipcMain.handle('instance:delete', (_e, id) => {
   return s;
 });
 
+// ---- change an installation's Minecraft version and keep its mods working ----
+ipcMain.handle('instance:version-plan', async (_e, { id, mc }) => {
+  const inst = getInst(id); if (!inst) return { error: 'That installation isn’t there any more.' };
+  try {
+    const entries = await L.manifest();
+    const to = entries.findIndex((v) => v.id === mc), from = entries.findIndex((v) => v.id === inst.mc);
+    if (to < 0) return { error: 'That version isn’t available.' };
+    if (inst.loader !== 'vanilla') {
+      const sup = await loaders.support(new Set([...await V.listFabricGameVersions()]));
+      if (!(sup[inst.loader] || []).includes(mc)) return { unsupported: true, loader: inst.loader };
+    }
+    const p = await versionChange.plan(instDir(id), inst, mc);
+    const saves = path.join(instDir(id), 'saves');
+    const worlds = fs.existsSync(saves) ? fs.readdirSync(saves).filter((n) => !n.startsWith('.')).length : 0;
+    return { plan: { updates: p.items.map((i) => ({ title: i.title, from: i.from, to: i.to })), missing: p.missing.map((x) => x.title), unknown: p.unknown, same: p.same, adds: p.adds.length }, older: to > from && from >= 0, worlds };
+  } catch (e) { return { error: `Couldn’t check the mods: ${e.message}` }; }
+});
+ipcMain.handle('instance:version-apply', async (_e, { id, mc }) => {
+  const inst = getInst(id); if (!inst) return { error: 'That installation isn’t there any more.' };
+  if (game || launching) return { error: 'Close Minecraft first.' };
+  try {
+    const entries = await L.manifest();
+    if (!entries.some((v) => v.id === mc)) return { error: 'That version isn’t available.' };
+    if (inst.loader !== 'vanilla') {
+      const sup = await loaders.support(new Set([...await V.listFabricGameVersions()]));
+      if (!(sup[inst.loader] || []).includes(mc)) return { error: `${loaders.NAMES[inst.loader]} isn’t available for Minecraft ${mc}.` };
+    }
+    // work it out again here: the page's copy of the plan is never trusted
+    const p = await versionChange.plan(instDir(id), inst, mc);
+    const result = await versionChange.apply(instDir(id), instDir(id), inst, mc, p, (label, d, t) => send('version:step', { label, done: d, total: t }));
+    const s = store.load(), i = s.instances.find((x) => x.id === id);
+    i.mc = mc; store.save(s);
+    return { settings: s, result };
+  } catch (e) { return { error: e.message }; }
+});
 ipcMain.handle('instance:open', (_e, id) => { fs.mkdirSync(instDir(id), { recursive: true }); return shell.openPath(instDir(id)); });
 
 let launching = null; // the job for a launch that is still getting files ready

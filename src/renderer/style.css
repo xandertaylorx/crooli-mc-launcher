@@ -487,3 +487,18 @@ h1, h2, h3, .page-head h1, .page > h2, .pane.side h2, .srv-head h2, .srv-form h2
 #btn-play.playing, #btn-play.playing:disabled { background: #d6a516; color: #2b2100; text-shadow: 1px 1px 0 rgba(255, 255, 255, .35); opacity: 1; animation: playing-pulse 2.4s ease-in-out infinite; }
 @keyframes playing-pulse { 50% { background: #e8b82a; } }
 @media (prefers-reduced-motion: reduce) { #btn-play.playing { animation: none; } }
+
+/* ---------- change version ---------- */
+.ver-pick { display: flex; align-items: flex-end; gap: 18px; flex-wrap: wrap; }
+.ver-pick label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--ink-2); font-weight: 500; }
+.ver-pick label.check { flex-direction: row; align-items: center; gap: 9px; height: 40px; font-weight: 400; font-size: 14px; color: var(--ink); }
+.ver-pick select { min-width: 220px; }
+.ver-summary { display: grid; gap: 12px; max-height: 46vh; overflow-y: auto; padding-right: 4px; }
+.ver-summary p { margin: 0; }
+.ver-block { padding: 12px 14px; border-radius: 8px; background: var(--tile); }
+.ver-block b { display: block; font-weight: 700; margin-bottom: 6px; }
+.ver-block ul { margin: 0; padding-left: 18px; display: grid; gap: 2px; font-size: 13.5px; color: var(--ink-2); }
+.ver-block li.more { list-style: none; margin-left: -18px; color: var(--dim); }
+.ver-block.warn { box-shadow: inset 0 0 0 1px var(--warn); }
+.ver-block.warn b { color: var(--warn); }
+.ver-warn { color: var(--warn); }

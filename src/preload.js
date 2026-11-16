@@ -8,6 +8,8 @@ contextBridge.exposeInMainWorld('api', {
   openCrashReport: call('crash:open-report'),
   modUpdates: call('mods:updates'),
   updateAllMods: (id, updates) => ipcRenderer.invoke('mods:update-all', { id, updates }),
+  versionPlan: (id, mc) => ipcRenderer.invoke('instance:version-plan', { id, mc }),
+  versionApply: (id, mc) => ipcRenderer.invoke('instance:version-apply', { id, mc }),
   selectAccount: call('accounts:select'),
   addAccount: call('accounts:add'),
   renameAccount: (id, name) => ipcRenderer.invoke('accounts:rename', { id, name }),
