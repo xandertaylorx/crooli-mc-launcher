@@ -19,7 +19,7 @@ const getInst = id => store.load().instances.find(i => i.id === id);
 function createWindow() {
   win = new BrowserWindow({
     width: 1080, height: 720, minWidth: 900, minHeight: 620,
-    backgroundColor: '#33363c', title: 'Crooli Launcher', autoHideMenuBar: true,
+    backgroundColor: '#33363c', title: 'Crooli MC Launcher', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));

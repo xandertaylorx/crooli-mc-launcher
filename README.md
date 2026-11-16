@@ -1,4 +1,4 @@
-# Crooli Launcher
+# Crooli MC Launcher
 
 A small, retro-styled Minecraft launcher for macOS and Windows (Electron).
 

@@ -1,4 +1,4 @@
-/* Crooli Launcher website. Shares the Crooli tokens (warm greys, ink, glass shader panels) but reads top to
+/* Crooli MC Launcher website. Shares the Crooli tokens (warm greys, ink, glass shader panels) but reads top to
    bottom in one column: intro, the launcher, three steps, what's included, download. Light by default. */
 :root {
   --bg: #f5f5f3;
