@@ -234,9 +234,10 @@
     await api.clearSkin(); saved = null; status(); rebuild(); toast('Back to the default skin.');
   };
 
-  // Start from whatever is saved, or a fresh build.
-  (async () => {
+  // Start from whatever is saved for this player, or the default figure. Runs again when you switch player.
+  async function loadSaved() {
     const s = await api.loadSkin();
+    saved = null;
     if (s) {
       saved = { name: s.name, model: s.model };
       const img = await loadImage(s.model === 'slim' ? s.slim : s.wide);
@@ -249,5 +250,7 @@
       }
     } else rebuild();
     status();
-  })();
+  }
+  window.reloadSkin = loadSaved;
+  loadSaved();
 })();

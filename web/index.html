@@ -4,7 +4,7 @@
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>Crooli MC Launcher: Minecraft with mods, minus the fuss</title>
-<meta name="description" content="A small Minecraft launcher for Mac and Windows. It downloads the game and Java for you, installs Fabric mods, resource packs and shaders from Modrinth, and can run a server for your friends. Free and open source." />
+<meta name="description" content="A small Minecraft launcher for Mac and Windows. It downloads the game and Java for you, installs mods for Fabric, Quilt, NeoForge and Forge, plus resource packs and shaders, from Modrinth, and can run a server for your friends. Free and open source." />
 <meta name="theme-color" content="#f5f5f3" />
 <script>try{if(localStorage.getItem("crooli-launcher.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
 <link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
@@ -71,7 +71,7 @@
       <div class="step-text">
         <span class="num">1</span>
         <h3>Make an installation</h3>
-        <p>Name it, pick a Minecraft version and choose Fabric if you want mods. Each installation keeps its own worlds, mods and memory, so a modded survival world never touches a quick vanilla one.</p>
+        <p>Name it, pick a Minecraft version and choose Fabric, Quilt, NeoForge or Forge if you want mods. Rename it any time. Each installation keeps its own worlds, mods and memory, so a modded survival world never touches a quick vanilla one.</p>
       </div>
       <div class="step-art panel">
         <canvas class="shader" data-mode="silk" data-palette="sky" aria-hidden="true"></canvas>
@@ -122,7 +122,7 @@
     <article class="feature">
       <div class="feature-text">
         <h3>Run a server for your friends.</h3>
-        <p>Pick a version and press Start. The launcher downloads Mojang’s server, agrees to the EULA when you create it, and gives you a console that completes commands as you type, like <code>op Steve</code> or <code>time set day</code>. Keep a whitelist with a switch and an add-by-name box, flip settings like PvP and command blocks whenever you want, copy the address for this computer or your Wi-Fi, and open the world or mods folder.</p>
+        <p>Pick a version and a loader and press Start. The launcher downloads Mojang’s server, agrees to the EULA when you create it, and gives you a console that completes commands as you type, like <code>op Steve</code> or <code>time set day</code>. Keep a whitelist with a switch and an add-by-name box, flip settings like PvP and command blocks whenever you want, edit every line of the properties file, add server mods from Modrinth, copy the address for this computer or your Wi-Fi, and open the world or mods folder.</p>
       </div>
       <div class="feature-art panel">
         <canvas class="shader" data-mode="silk" data-palette="grass" aria-hidden="true"></canvas>
@@ -164,7 +164,7 @@
     <h2 class="h2 center">Nothing else to install.</h2>
     <p class="lede center">The launcher fetches all of this itself and checks every file it downloads.</p>
     <ul class="chips">
-      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Fabric loader</li><li>Log4j fix</li><li>Mod dependencies</li><li>Server jars</li><li>Iris for shaders</li>
+      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Mod loaders</li><li>Log4j fix</li><li>Mod dependencies</li><li>Server jars</li><li>Iris for shaders</li>
     </ul>
     <ul class="extras">
       <li><b>Cancel any time</b><span>Changed your mind while it downloads? Press Cancel and everything it fetched for that start is removed.</span></li>

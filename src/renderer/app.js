@@ -155,7 +155,11 @@ function toast(msg) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('show'), 3500);
 }
 const inst = () => (S && S.instances.find(i => i.id === S.selected)) || null;
-const loaderName = i => (i.loader === 'fabric' ? 'Fabric' : 'Vanilla');
+const LOADER_NAMES = { vanilla: 'Vanilla', fabric: 'Fabric', quilt: 'Quilt', neoforge: 'NeoForge', forge: 'Forge' };
+const loaderName = i => LOADER_NAMES[i.loader] || 'Vanilla';
+const isModded = i => !!i && i.loader !== 'vanilla';
+const canShaders = i => !!i && ['fabric', 'quilt', 'neoforge'].includes(i.loader);
+let loaderSupport = {};   // loader -> Set of Minecraft versions it works with
 const gb = mb => `${+(mb / 1024).toFixed(1)} GB`;
 
 function show(view) {
@@ -173,8 +177,8 @@ async function render() {
   S.instances.forEach(i => sel.append(h('option', { value: i.id, textContent: `${i.name} (${loaderName(i)} ${i.mc})`, selected: i.id === S.selected })));
   if (!S.instances.length) sel.append(h('option', { textContent: 'No installations yet' }));
   sel.disabled = !S.instances.length;
-  $('#in-name').value = S.username; $('#s-name').value = S.username; $('#s-java').value = S.javaPath || '';
-  drawFace(S.username);
+  $('#s-name').value = S.username; $('#s-java').value = S.javaPath || '';
+  drawFace(S.username); $('#player-name').textContent = S.username; renderAccounts();
 
   const i = inst();
   $('#btn-folder').disabled = !i;
@@ -184,9 +188,9 @@ async function render() {
   } else {
     $('#play-title').textContent = i.name;
     let sub = `${loaderName(i)} ${i.mc} with ${gb(i.ram)} of memory`;
-    if (i.loader === 'fabric') {
+    if (isModded(i)) {
       const n = (await api.listPacks(i.id, 'mod')).filter(m => m.enabled).length;
-      sub = `Fabric ${i.mc}, ${n === 0 ? 'no mods yet' : n === 1 ? '1 mod' : n + ' mods'}, ${gb(i.ram)} of memory`;
+      sub = `${loaderName(i)} ${i.mc}, ${n === 0 ? 'no mods yet' : n === 1 ? '1 mod' : n + ' mods'}, ${gb(i.ram)} of memory`;
     }
     $('#play-sub').textContent = sub;
   }
@@ -200,7 +204,7 @@ function renderPlayButton() {
     : state === 'preparing' ? ['Cancel', 'Stop and remove what it downloaded']
     : state === 'cancelling' ? ['Cancelling', 'Cleaning up…']
     : state === 'running' ? ['Playing', `Minecraft ${i.mc} is running`]
-    : ['Play', `Minecraft ${i.mc}${i.loader === 'fabric' ? ' with Fabric' : ''}`];
+    : ['Play', `Minecraft ${i.mc}${isModded(i) ? ' with ' + loaderName(i) : ''}`];
   b.querySelector('.l1').textContent = l1; $('#play-l2').textContent = l2;
   b.disabled = state === 'running' || state === 'cancelling';
   b.classList.toggle('cancel', state === 'preparing');
@@ -214,16 +218,34 @@ function renderInstances() {
     play.onclick = async e => { e.stopPropagation(); await select(x.id); show('play'); launch(); };
     const folder = h('button', { className: 'link quiet', textContent: 'Open folder' });
     folder.onclick = e => { e.stopPropagation(); api.openInstance(x.id); };
+    const rename = h('button', { className: 'link quiet', textContent: 'Rename' });
+    rename.onclick = e => {
+      e.stopPropagation();
+      const t = row.querySelector('.t');
+      const inp = h('input', { type: 'text', value: x.name, maxLength: 32, className: 'rename-in', ariaLabel: 'Installation name' });
+      t.replaceChildren(inp); inp.focus(); inp.select();
+      let finished = false;
+      const done = async (save) => {
+        if (finished) return; finished = true;
+        const v = inp.value.trim();
+        if (save && v && v !== x.name) { const r = await api.renameInstance(x.id, v); if (r.error) toast(r.error); else { S = r; toast(`Renamed to ${v}`); } }
+        render();
+      };
+      inp.onclick = ev => ev.stopPropagation();
+      inp.onkeydown = ev => { if (ev.key === 'Enter') done(true); if (ev.key === 'Escape') done(false); };
+      inp.onblur = () => done(true);
+    };
     const del = h('button', { className: 'link quiet danger', textContent: 'Delete' });
     del.onclick = async e => {
       e.stopPropagation();
       if (confirm(`Delete "${x.name}"? Its worlds, mods and settings will be removed for good.`)) { S = await api.deleteInstance(x.id); render(); toast(`Deleted ${x.name}`); }
     };
-    list.append(h('div', { className: 'row clickable' + (x.id === S.selected ? ' sel' : ''), onclick: () => select(x.id) },
+    const row = h('div', { className: 'row clickable' + (x.id === S.selected ? ' sel' : ''), onclick: () => select(x.id) },
       h('div', { className: 'info' },
         h('div', { className: 't' }, x.name, h('span', { className: 'tag', textContent: loaderName(x) })),
         h('div', { className: 'd', textContent: `Minecraft ${x.mc}, ${gb(x.ram)} of memory` })),
-      h('div', { className: 'acts' }, folder, del, play)));
+      h('div', { className: 'acts' }, folder, rename, del, play));
+    list.append(row);
   });
 }
 
@@ -240,10 +262,13 @@ function fillVersions() {
 }
 function updateLoaderOption() {
   if ($('#f-version').value === '__import__') return; // that entry opens the import window instead
-  const ok = fabricSet.has($('#f-version').value);
-  const opt = $('#f-loader').querySelector('[value=fabric]');
-  opt.disabled = !ok; opt.textContent = ok ? 'Fabric, mods allowed' : 'Fabric (not out for this version)';
-  if (!ok) $('#f-loader').value = 'vanilla';
+  const mc = $('#f-version').value, sel = $('#f-loader');
+  for (const o of sel.options) {
+    if (o.value === 'vanilla') continue;
+    const ok = !!(loaderSupport[o.value] && loaderSupport[o.value].has(mc));
+    o.disabled = !ok; o.textContent = ok ? `${LOADER_NAMES[o.value]}, mods allowed` : `${LOADER_NAMES[o.value]} (not out for this version)`;
+  }
+  if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) sel.value = 'vanilla';
 }
 $('#f-snap').onchange = fillVersions;
 $('#f-version').onchange = updateLoaderOption;
@@ -262,8 +287,56 @@ $('#settings-form').onsubmit = async e => {
   S = await api.saveSettings({ username: cleanName($('#s-name').value), javaPath: $('#s-java').value.trim() || null });
   render(); toast('Settings saved');
 };
-$('#in-name').onchange = async e => { S = await api.saveSettings({ username: cleanName(e.target.value) }); render(); };
-$('#in-name').onkeydown = e => { if (e.key === 'Enter') e.target.blur(); };
+
+// ================= players: the picker in the top right =================
+const acctMenu = $('#acct-menu'), playerBtn = $('#player-btn');
+function closeAcctMenu() { acctMenu.hidden = true; playerBtn.setAttribute('aria-expanded', 'false'); }
+playerBtn.onclick = (e) => { e.stopPropagation(); const open = acctMenu.hidden; acctMenu.hidden = !open; playerBtn.setAttribute('aria-expanded', String(open)); if (open) renderAccounts(); };
+document.addEventListener('click', (e) => { if (!acctMenu.hidden && !acctMenu.contains(e.target)) closeAcctMenu(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !acctMenu.hidden) { closeAcctMenu(); playerBtn.focus(); } });
+async function accountChanged(next) {
+  if (next && next.error) return toast(next.error);
+  if (next) S = next;
+  await render();
+  if (window.reloadSkin) window.reloadSkin();
+  if ($('#view-servers').classList.contains('active')) selectServer();
+}
+function renderAccounts() {
+  if (!S || !S.accounts) return;
+  acctMenu.replaceChildren();
+  S.accounts.forEach((a) => {
+    const face = h('canvas', { width: 8, height: 8, className: 'acct-face' });
+    drawFaceOn(face, a.name);
+    const pick = h('button', { className: 'acct-pick', type: 'button', role: 'menuitemradio', ariaChecked: String(a.id === S.account),
+      onclick: async () => { if (a.id !== S.account) await accountChanged(await api.selectAccount(a.id)); closeAcctMenu(); } },
+      face, h('span', { className: 'acct-name', textContent: a.name }), a.id === S.account ? h('span', { className: 'acct-on', textContent: 'In use' }) : '');
+    const rename = h('button', { className: 'acct-act', type: 'button', textContent: 'Rename', onclick: (e) => {
+      e.stopPropagation();
+      const inp = h('input', { type: 'text', value: a.name, maxLength: 16, className: 'acct-edit', ariaLabel: 'New name' });
+      row.replaceChildren(face, inp); inp.focus(); inp.select();
+      const done = async (save) => { if (save && inp.value.trim() !== a.name) await accountChanged(await api.renameAccount(a.id, inp.value)); else renderAccounts(); };
+      inp.onkeydown = (ev) => { if (ev.key === 'Enter') done(true); if (ev.key === 'Escape') { ev.stopPropagation(); done(false); } };
+      inp.onblur = () => done(true);
+    } });
+    const remove = S.accounts.length > 1 ? h('button', { className: 'acct-act danger', type: 'button', textContent: 'Remove', onclick: async (e) => {
+      e.stopPropagation();
+      if (confirm(`Remove ${a.name}? Their saved skin goes too. Your worlds are not touched.`)) await accountChanged(await api.removeAccount(a.id));
+    } }) : '';
+    const row = h('div', { className: 'acct-row' + (a.id === S.account ? ' on' : '') }, pick, rename, remove);
+    acctMenu.append(row);
+  });
+  const add = h('form', { className: 'acct-add', autocomplete: 'off' },
+    h('input', { type: 'text', placeholder: 'Add a player', maxLength: 16, spellcheck: false, ariaLabel: 'New player name' }),
+    h('button', { className: 'mc-btn small green', type: 'submit', textContent: 'Add' }));
+  add.onsubmit = async (e) => {
+    e.preventDefault();
+    const v = add.querySelector('input').value.trim(); if (!v) return;
+    const r = await api.addAccount(v);
+    if (r.error) return toast(r.error);
+    await accountChanged(r); renderAccounts(); toast(`Added ${v}`);
+  };
+  acctMenu.append(add, h('button', { className: 'acct-ms', type: 'button', disabled: true, title: 'Online accounts are coming later' }, 'Sign in with Microsoft', h('span', { textContent: 'Coming soon' })));
+}
 
 // ================= play & log =================
 // The game logs in log4j XML; turn it into readable lines.
@@ -353,6 +426,52 @@ api.on('game:state', st => {
   renderPlayButton(); renderInstances();
 });
 
+// ----- when the game crashes -----
+const crashDlg = $('#crash-dialog');
+api.on('game:crash', (c) => {
+  $('#crash-title').textContent = c.title; $('#crash-why').textContent = c.why;
+  const box = $('#crash-actions'); box.replaceChildren();
+  c.actions.forEach((a, i) => box.append(h('button', { className: 'mc-btn' + (i === 0 ? ' green' : ''), type: 'button', textContent: a.label, onclick: async () => {
+    const r = await api.crashAct(c.instId, a);
+    if (r.error) return toast(r.error);
+    if (r.settings) S = r.settings;
+    crashDlg.close(); await render();
+    if (a.kind === 'mods') { await select(c.instId); show('mods'); } else if (r.note) toast(r.note);
+  } })));
+  box.append(
+    h('button', { className: 'mc-btn small', type: 'button', textContent: 'Copy details', onclick: async (e) => { await navigator.clipboard.writeText(c.details); e.target.textContent = 'Copied'; setTimeout(() => (e.target.textContent = 'Copy details'), 1500); } }),
+    c.report ? h('button', { className: 'link quiet', type: 'button', textContent: 'Show crash report', onclick: () => api.openCrashReport(c.report) }) : '',
+    h('span', { className: 'spacer' }),
+    h('button', { className: 'link quiet', type: 'button', textContent: 'Close', onclick: () => crashDlg.close() }));
+  if (!crashDlg.open) { crashDlg.showModal(); crashDlg.setAttribute('tabindex', '-1'); crashDlg.focus(); }
+});
+
+// ----- update all mods -----
+let pendingUpdates = [];
+$('#upd-check').onclick = async () => {
+  const i = inst(); if (!i) return;
+  const b = $('#upd-check'); b.disabled = true; b.textContent = 'Checking…';
+  const r = await api.modUpdates(i.id);
+  b.disabled = false; b.textContent = 'Check for updates';
+  if (r.error) return toast(r.error);
+  pendingUpdates = r.updates;
+  if (!pendingUpdates.length) { $('#upd-bar').hidden = true; return toast('Everything is up to date.'); }
+  const n = pendingUpdates.length;
+  $('#upd-text').textContent = `${n} ${n === 1 ? 'update' : 'updates'} available: ` + pendingUpdates.slice(0, 4).map((u) => `${u.title} ${u.to}`).join(', ') + (n > 4 ? ` and ${n - 4} more` : '');
+  $('#upd-go').textContent = n === 1 ? 'Update' : 'Update all'; $('#upd-bar').hidden = false;
+};
+$('#upd-no').onclick = () => { $('#upd-bar').hidden = true; };
+$('#upd-go').onclick = async () => {
+  const i = inst(); if (!i) return;
+  const b = $('#upd-go'); b.disabled = true;
+  const r = await api.updateAllMods(i.id, pendingUpdates.map((u) => ({ file: u.file })));
+  b.disabled = false; $('#upd-bar').hidden = true;
+  if (r.error) return toast(r.error);
+  renderInstalled(r.list); render();
+  toast(`Updated ${r.done.length} ${r.done.length === 1 ? 'mod' : 'mods'}` + (r.skipped.length ? `. Left ${r.skipped.length} as they were: ${r.skipped[0].title} (${r.skipped[0].why})` : '.'));
+};
+api.on('game:progress-mods', ({ label, done, total }) => { $('#upd-text').textContent = `${label}  ${done} of ${total}`; });
+
 // ================= news =================
 async function loadNews() {
   const items = await api.news(), box = $('#news-list');
@@ -374,7 +493,7 @@ const lk = () => (kind === 'crooli' ? 'mod' : kind); // which list the Installed
 let kind = 'mod', searchSeq = 0, installedList = [];
 
 function noteFor(i) {
-  if (kind === 'mod') return `Showing Fabric mods that work with Minecraft ${i.mc}, from Modrinth. Required mods are installed for you.`;
+  if (kind === 'mod') return `Showing ${loaderName(i)} mods that work with Minecraft ${i.mc}, from Modrinth. Required mods are installed for you.`;
   if (kind === 'resourcepack') return `Showing resource packs for Minecraft ${i.mc}. Installing one turns it on.`;
   return `Showing shader packs for Minecraft ${i.mc} that Iris can load. Installing one turns it on.`;
 }
@@ -386,14 +505,15 @@ async function refreshMods() {
   $('#installed-title').textContent = KIND[kind].installed;
   $('#mod-q').placeholder = KIND[kind].search;
   $('#add-file').disabled = $('#add-folder').disabled = !i;
-  $('#shader-hint').hidden = true;
+  $('#shader-hint').hidden = true; $('#upd-bar').hidden = true;
+  $('#upd-check').hidden = kind !== 'mod' || !i || i.loader === 'vanilla';
   if (kind === 'crooli') return refreshCrooli(i);
-  const blocked = !i || (kind !== 'resourcepack' && i.loader !== 'fabric');
+  const blocked = !i || (kind === 'mod' && !isModded(i)) || (kind === 'shader' && !canShaders(i));
   $('#mod-search').hidden = blocked;
   if (blocked) {
     $('#mods-note').textContent = !i ? 'Create an installation first.'
-      : kind === 'mod' ? `${i.name} is Vanilla, so it can't load mods. Make a Fabric installation to add mods.`
-      : `Shader packs run through Iris, a Fabric mod, so ${i.name} needs to be a Fabric installation.`;
+      : kind === 'mod' ? `${i.name} is Vanilla, so it can't load mods. Make a Fabric, Quilt, NeoForge or Forge installation to add mods.`
+      : `Shader packs run through Iris, which needs Fabric, Quilt or NeoForge. ${i.name} is ${loaderName(i)}.`;
     const go = h('button', { className: 'mc-btn green', textContent: i ? 'New Fabric installation' : 'New installation' });
     go.onclick = () => { show('instances'); $('#f-loader').value = 'fabric'; $('#f-name').focus(); };
     $('#mod-results').replaceChildren(h('div', { className: 'empty' }, go));
@@ -491,7 +611,7 @@ async function refreshCrooli(i) {
   r.mods.forEach((m) => {
     let label = 'Install', why = '';
     if (!i) { label = 'No installation'; why = 'Create an installation first.'; }
-    else if (i.loader !== 'fabric') { label = 'Needs Fabric'; why = `${i.name} is Vanilla. Make a Fabric installation to use these.`; }
+    else if (!['fabric', 'quilt'].includes(i.loader)) { label = 'Needs Fabric'; why = `These are Fabric mods, and ${i.name} is ${loaderName(i)}. Make a Fabric or Quilt installation to use them.`; }
     else if (m.mc && m.mc !== i.mc) { label = `Needs ${m.mc}`; why = `${m.name} is built for Minecraft ${m.mc}; ${i.name} is ${i.mc}.`; }
     if (i && have.has(m.file)) { label = 'Installed'; why = ''; }
     const btn = h('button', { className: 'mc-btn small green', textContent: label, title: why });
@@ -582,7 +702,7 @@ function renderSrvList() {
     box.append(h('div', { className: 'row clickable' + (sel && x.id === sel.id && !srvEditing ? ' sel' : ''), onclick: () => selectServer(x.id) },
       h('div', { className: 'info' },
         h('div', { className: 't' }, h('span', { className: 'dot ' + st }), x.name),
-        h('div', { className: 'd', textContent: `${x.type === 'fabric' ? 'Fabric' : 'Vanilla'} ${x.mc}, ${STATE_TEXT[st].toLowerCase()}` }))));
+        h('div', { className: 'd', textContent: `${LOADER_NAMES[x.type] || 'Vanilla'} ${x.mc}, ${STATE_TEXT[st].toLowerCase()}` }))));
   });
 }
 
@@ -594,7 +714,7 @@ function renderSrvDetail(addr) {
   if (srvEditing || !sel) return;
   const st = srvStates[sel.id] || { state: 'stopped', players: [] };
   $('#srv-name').textContent = sel.name;
-  $('#srv-meta').textContent = `${sel.type === 'fabric' ? 'Fabric' : 'Vanilla'} ${sel.mc}, ${gb(sel.ram)} of memory, ${sel.gamemode}, ${sel.difficulty}` +
+  $('#srv-meta').textContent = `${LOADER_NAMES[sel.type] || 'Vanilla'} ${sel.mc}, ${gb(sel.ram)} of memory, ${sel.gamemode}, ${sel.difficulty}` +
     (st.state === 'running' ? `. ${st.players.length === 1 ? '1 player' : st.players.length + ' players'} online` : '');
   const pill = $('#srv-status'); pill.className = 'pill ' + st.state; pill.textContent = STATE_TEXT[st.state];
   const t = $('#srv-toggle');
@@ -603,7 +723,9 @@ function renderSrvDetail(addr) {
   t.className = 'mc-btn ' + (st.state === 'stopped' ? 'green' : 'danger');
   t.disabled = st.state === 'stopping' || st.state === 'preparing';
   $('#srv-input').disabled = st.state !== 'running' && st.state !== 'starting';
-  $('#srv-mods-link').hidden = sel.type !== 'fabric';
+  $('#srv-mods-link').hidden = sel.type === 'vanilla';
+  $('#srvtab-mods').hidden = sel.type === 'vanilla';
+  if (sel.type === 'vanilla' && srvTab === 'mods') showSrvTab('console');
   $('#srv-delete').disabled = busy;
   if (st.state !== 'running') $('#srv-addr').replaceChildren();
   else if (addr) {
@@ -624,7 +746,7 @@ async function selectServer(id) {
   srvEditing = null;
   if (id) S = await api.saveSettings({ selectedServer: id });
   const sel = srvSel();
-  $('#srv-log').replaceChildren(); srvFollow = true;
+  $('#srv-log').replaceChildren(); srvFollow = true; $('#sm-results').replaceChildren();
   if (sel) {
     const st = await api.serverStatus(sel.id);
     srvStates[sel.id] = { state: st.state, players: st.players };
@@ -656,10 +778,13 @@ function openServerForm(srv) {
   $('#sf-name').focus();
 }
 function updateServerTypeOption() {
-  const ok = fabricSet.has($('#sf-version').value);
-  const opt = $('#sf-type').querySelector('[value=fabric]');
-  opt.disabled = !ok; opt.textContent = ok ? 'Fabric, for server mods' : 'Fabric (not out for this version)';
-  if (!ok) $('#sf-type').value = 'vanilla';
+  const mc = $('#sf-version').value, sel = $('#sf-type');
+  for (const o of sel.options) {
+    if (o.value === 'vanilla') continue;
+    const ok = !!(loaderSupport[o.value] && loaderSupport[o.value].has(mc));
+    o.disabled = !ok; o.textContent = ok ? `${LOADER_NAMES[o.value]}, for server mods` : `${LOADER_NAMES[o.value]} (not out for this version)`;
+  }
+  if (sel.selectedOptions[0] && sel.selectedOptions[0].disabled) sel.value = 'vanilla';
 }
 $('#sf-version').onchange = updateServerTypeOption;
 document.querySelectorAll('[data-new-server]').forEach((b) => (b.onclick = () => openServerForm(null)));
@@ -759,9 +884,11 @@ let srvTab = 'console';
 function showSrvTab(t) {
   srvTab = t;
   document.querySelectorAll('[data-srvtab]').forEach((b) => b.classList.toggle('active', b.dataset.srvtab === t));
-  ['console', 'players', 'options'].forEach((n) => ($('#srvp-' + n).hidden = n !== t));
+  ['console', 'players', 'options', 'props', 'mods'].forEach((n) => ($('#srvp-' + n).hidden = n !== t));
   if (t === 'players') loadPlayers();
   if (t === 'options') loadOptions();
+  if (t === 'props') loadProps();
+  if (t === 'mods') loadSrvMods();
 }
 document.querySelectorAll('[data-srvtab]').forEach((b) => (b.onclick = () => showSrvTab(b.dataset.srvtab)));
 const srvRunning = () => { const s = srvSel(); return !!s && ['starting', 'running'].includes((srvStates[s.id] || {}).state); };
@@ -810,6 +937,97 @@ $('#wl-form').onsubmit = async (e) => {
   if (r.error) return toast(r.error);
   $('#wl-name').value = ''; toast(`Added ${name}`);
   await new Promise((res) => setTimeout(res, srvRunning() ? 700 : 0)); loadPlayers();
+};
+
+// ----- every setting in server.properties -----
+const PROP_HELP = {
+  motd: 'The message shown under the server name in the server list.', 'max-players': 'How many people can be online at once.', 'server-port': 'The port people connect to.',
+  'view-distance': 'How far players can see, in chunks. Lower is lighter on the computer.', 'simulation-distance': 'How far from players the world keeps running, in chunks.',
+  'level-name': 'The folder name of the world.', 'level-seed': 'The seed for a new world. Only used when the world is first made.', 'level-type': 'The kind of world to make.',
+  hardcore: 'Players are banned when they die.', 'online-mode': 'Checks players’ accounts with Mojang. Off lets offline players join.', 'white-list': 'Only players on the whitelist can join.',
+  'enforce-whitelist': 'Removes online players who aren’t on the whitelist when it’s turned on.', 'spawn-protection': 'Radius around spawn that only operators can change.',
+  'allow-flight': 'Stops the server kicking players for flying.', 'pvp': 'Players can hurt each other.', 'difficulty': 'peaceful, easy, normal or hard.', 'gamemode': 'survival, creative, adventure or spectator.',
+  'force-gamemode': 'Puts players in the default game mode every time they join.', 'enable-command-block': 'Lets command blocks run.', 'generate-structures': 'Villages, temples and so on in new chunks.',
+  'op-permission-level': 'What operators are allowed to do, from 1 to 4.', 'player-idle-timeout': 'Minutes before an idle player is kicked. 0 never kicks.', 'max-world-size': 'The largest the world can be, in blocks from the centre.',
+  'network-compression-threshold': 'Packets larger than this many bytes are compressed.', 'enable-status': 'Shows the server in the server list.', 'sync-chunk-writes': 'Safer saving, a little slower.',
+};
+let propsOriginal = {}, propsDirty = {};
+function renderProps() {
+  const list = $('#sp-list'), q = $('#sp-filter').value.trim().toLowerCase();
+  list.replaceChildren();
+  const keys = Object.keys(propsOriginal).filter((k) => !q || k.includes(q) || (PROP_HELP[k] || '').toLowerCase().includes(q)).sort();
+  if (!keys.length) list.append(h('div', { className: 'empty', textContent: q ? 'No settings match that.' : 'Nothing here yet.' }));
+  keys.forEach((k) => {
+    const cur = k in propsDirty ? propsDirty[k] : propsOriginal[k];
+    let input;
+    if (/^(true|false)$/.test(propsOriginal[k])) { input = h('input', { type: 'checkbox', className: 'switch', checked: cur === 'true', ariaLabel: k }); input.onchange = () => setProp(k, String(input.checked)); }
+    else { input = h('input', { type: /^-?\d+$/.test(propsOriginal[k]) ? 'number' : 'text', value: cur, className: 'prop-in', ariaLabel: k, spellcheck: false }); input.oninput = () => setProp(k, input.value); }
+    list.append(h('label', { className: 'row opt-row' + (k in propsDirty ? ' changed' : '') }, h('span', { className: 'opt-text' }, h('b', { className: 'prop-key', textContent: k }), PROP_HELP[k] ? h('small', { textContent: PROP_HELP[k] }) : ''), input));
+  });
+  $('#sp-save').disabled = !Object.keys(propsDirty).length;
+}
+function setProp(k, v) { if (v === propsOriginal[k]) delete propsDirty[k]; else propsDirty[k] = v; $('#sp-save').disabled = !Object.keys(propsDirty).length; }
+async function loadProps() {
+  const sel = srvSel(); if (!sel) return;
+  const r = await api.serverProps(sel.id);
+  propsDirty = {};
+  if (!r.props) { propsOriginal = {}; $('#sp-list').replaceChildren(h('div', { className: 'empty', textContent: 'This server hasn’t made its settings file yet. Start it once, then come back.' })); $('#sp-save').disabled = true; $('#sp-hint').textContent = ''; return; }
+  propsOriginal = r.props;
+  $('#sp-hint').textContent = srvRunning() ? 'The server is running. Most settings apply the next time it starts.' : 'Saved to the server’s settings file. They apply when it starts.';
+  renderProps();
+}
+$('#sp-filter').oninput = renderProps;
+$('#sp-bar').onsubmit = async (e) => {
+  e.preventDefault();
+  const sel = srvSel(); if (!sel || !Object.keys(propsDirty).length) return;
+  const r = await api.saveServerProps(sel.id, propsDirty);
+  if (r.error) return toast(r.error);
+  S = r.settings; toast(r.running ? 'Saved. Restart the server to apply it.' : 'Saved.');
+  await loadProps(); renderSrvDetail();
+};
+
+// ----- mods for a server -----
+function renderSrvInstalled(list) {
+  const box = $('#sm-installed'), sel = srvSel(); box.replaceChildren();
+  if (!list.length) box.append(h('div', { className: 'empty', textContent: 'No mods yet.' }));
+  list.forEach((m) => box.append(h('div', { className: 'row' + (m.enabled ? '' : ' off') },
+    h('div', { className: 'info' }, h('div', { className: 't', textContent: m.file.replace(/\.jar(\.disabled)?$/, '') })),
+    h('div', { className: 'acts' },
+      h('button', { className: 'link quiet', type: 'button', textContent: m.enabled ? 'Turn off' : 'Turn on', onclick: async () => { const r = await api.toggleServerMod(sel.id, m.file); if (r.error) toast(r.error); else renderSrvInstalled(r.list); } }),
+      h('button', { className: 'link quiet danger', type: 'button', textContent: 'Remove', onclick: async () => { const r = await api.removeServerMod(sel.id, m.file); if (r.error) toast(r.error); else renderSrvInstalled(r.list); } })))));
+}
+async function searchSrvMods() {
+  const sel = srvSel(); if (!sel) return;
+  const box = $('#sm-results'); box.replaceChildren(h('div', { className: 'empty', textContent: 'Searching…' }));
+  const r = await api.searchServerMods(sel.id, $('#sm-q').value.trim(), 0);
+  box.replaceChildren();
+  if (r.error) return box.append(h('div', { className: 'empty', textContent: r.error }));
+  if (!r.hits.length) return box.append(h('div', { className: 'empty', textContent: `Nothing for ${LOADER_NAMES[sel.type]} ${sel.mc}.` }));
+  r.hits.forEach((m) => {
+    const btn = h('button', { className: 'mc-btn small green', type: 'button', textContent: 'Install' });
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Installing…';
+      const res = await api.installServerMod(sel.id, m.id);
+      if (res.error) { btn.disabled = false; btn.textContent = 'Install'; return toast(res.error); }
+      btn.textContent = 'Installed'; renderSrvInstalled(res.list); toast(`Installed ${m.title}`);
+    };
+    box.append(h('div', { className: 'row' },
+      m.icon ? h('img', { src: m.icon, alt: '' }) : h('div', { className: 'ph' }),
+      h('div', { className: 'info' }, h('div', { className: 't', textContent: m.title }), h('div', { className: 'd', textContent: m.description })), btn));
+  });
+}
+async function loadSrvMods() {
+  const sel = srvSel(); if (!sel || sel.type === 'vanilla') return;
+  const r = await api.serverMods(sel.id); if (!r.error) renderSrvInstalled(r.list);
+  if (!$('#sm-results').childElementCount) searchSrvMods();
+}
+$('#sm-search').onsubmit = (e) => { e.preventDefault(); searchSrvMods(); };
+$('#sm-add').onclick = async () => {
+  const sel = srvSel(); if (!sel) return;
+  const r = await api.pickServerMods(sel.id);
+  if (r.canceled) return; if (r.error) return toast(r.error);
+  renderSrvInstalled(r.list);
+  const bad = r.results.find((x) => x.error); toast(bad ? bad.error : `Added ${r.results.length} ${r.results.length === 1 ? 'mod' : 'mods'}.`);
 };
 
 // ----- on/off options -----
@@ -892,6 +1110,7 @@ api.on('update', renderUpdate);
 (async () => {
   const init = await api.init();
   S = init.settings; versions = init.versions; fabricSet = new Set(init.fabric);
+  loaderSupport = Object.fromEntries(Object.entries(init.support || { fabric: init.fabric }).map(([k, v]) => [k, new Set(v)]));
   $('#s-dir').textContent = init.dataDir;
   $('#s-version').textContent = init.version;
   renderUpdate(init.update);

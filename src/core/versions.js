@@ -70,7 +70,13 @@ function merge(vanilla, loader) {
     ...vanilla,
     id: loader.id,
     mainClass: loader.mainClass || vanilla.mainClass,
-    libraries: [...(loader.libraries || []), ...vanilla.libraries],
+    // The loader's libraries win over vanilla's when both list the same one (a different version of the same library on
+    // the classpath breaks Forge and NeoForge).
+    libraries: (() => {
+      const key = (l) => (l.name || '').split(':').slice(0, 2).join(':') + ((l.name || '').split(':')[3] ? ':' + l.name.split(':')[3] : '');
+      const mine = new Set((loader.libraries || []).map(key));
+      return [...(loader.libraries || []), ...vanilla.libraries.filter((l) => !mine.has(key(l)))];
+    })(),
     arguments: { game: [...(va.game || []), ...(la.game || [])], jvm: [...(va.jvm || []), ...(la.jvm || [])] },
   };
 }
@@ -96,7 +102,11 @@ function resolveLibraries(vj) {
 
     const art = lib.downloads && lib.downloads.artifact;
     if (art) {
-      if (!art.url) continue;
+      if (!art.url) { // put there by the loader's installer
+        const here = path.join(libDir, art.path);
+        if (fs.existsSync(here)) classpath.push(here);
+        continue;
+      }
       const dest = path.join(libDir, art.path);
       downloads.push({ url: art.url, dest, sha1: art.sha1, size: art.size });
       classpath.push(dest);

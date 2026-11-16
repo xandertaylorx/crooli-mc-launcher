@@ -144,7 +144,7 @@ function addLocal(instDir, paths, { loader } = {}) {
     const name = path.basename(p);
     const c = classify(p);
     if (c.error) return { name, error: c.error };
-    if (c.kind === 'mod' && loader !== 'fabric') return { name, error: 'Mods need a Fabric installation. Make one on the Installations tab.' };
+    if (c.kind === 'mod' && (!loader || loader === 'vanilla')) return { name, error: 'Vanilla can’t load mods. Make a Fabric, Quilt, NeoForge or Forge installation on the Installations tab.' };
     const dest = path.join(dirFor(instDir, c.kind), safe(name));
     try {
       fs.mkdirSync(path.dirname(dest), { recursive: true });

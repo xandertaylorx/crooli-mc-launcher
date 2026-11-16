@@ -5,6 +5,7 @@ const { spawn } = require('child_process');
 const AdmZip = require('adm-zip');
 const { downloadFile, downloadAll, dirs, track, checkCancel } = require('./util');
 const V = require('./versions');
+const loaders = require('./loaders');
 const { ensureJava } = require('./java');
 const skin = require('./skin');
 
@@ -55,7 +56,6 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
   const entries = await manifest();
   const vanilla = await V.getVersionJson(inst.mc, entries);
   let vj = vanilla;
-  if (inst.loader === 'fabric') vj = V.merge(vanilla, await V.getFabricProfile(inst.mc));
 
   // client jar
   const jar = path.join(dirs.versions(), inst.mc, `${inst.mc}.jar`);
@@ -63,6 +63,17 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
   stage('Downloading Minecraft…');
   const c = vanilla.downloads.client;
   await downloadFile(c.url, jar, { sha1: c.sha1, size: c.size });
+
+  // java (the NeoForge and Forge installers need it too, so it comes before the loader)
+  checkCancel();
+  stage('Preparing Java…');
+  const component = (vanilla.javaVersion && vanilla.javaVersion.component) || 'jre-legacy';
+  const java = javaOverride || await ensureJava(component, (d, t) => stage('Downloading Java…', d, t));
+
+  if (loaders.MODDED.includes(inst.loader)) {
+    stage(`Setting up ${loaders.NAMES[inst.loader]}…`);
+    vj = V.merge(vanilla, await loaders.profileFor(inst.loader, inst.mc, { java, jar, onLine: (line) => { if (/^Considering library|Downloading library|Extracting|Processor|Running|Task:/.test(line)) stage(`Setting up ${loaders.NAMES[inst.loader]}…`); } }));
+  }
 
   // libraries
   const libs = V.resolveLibraries(vj);
@@ -85,21 +96,15 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
   }
 
   checkCancel();
-  // java
-  stage('Preparing Java…');
-  const component = (vj.javaVersion && vj.javaVersion.component) || 'jre-legacy';
-  const java = javaOverride || await ensureJava(component, (d, t) => stage('Downloading Java…', d, t));
-
-  checkCancel();
   // arguments
   const gameDir = path.join(dirs.instances(), inst.id);
   fs.mkdirSync(gameDir, { recursive: true });
   // Minecraft shows "Unable to read or access folder where game worlds are saved" if there is no saves folder yet,
   // which is the case in a brand new installation. Create the folders it expects.
   for (const d of ['saves', 'resourcepacks', 'shaderpacks', 'screenshots']) fs.mkdirSync(path.join(gameDir, d), { recursive: true });
-  if (inst.loader === 'fabric') fs.mkdirSync(path.join(gameDir, 'mods'), { recursive: true });
+  if (loaders.MODDED.includes(inst.loader)) fs.mkdirSync(path.join(gameDir, 'mods'), { recursive: true });
   // Put the player's skin in place (or take it out), right before the game reads its settings.
-  try { skin.apply(gameDir, jar, inst.mc); } catch (e) { emit('log', `Couldn't set up the skin: ${e.message}`); }
+  try { skin.apply(gameDir, jar, inst.mc, account.id); } catch (e) { emit('log', `Couldn't set up the skin: ${e.message}`); }
   const cp = [...libs.classpath, jar];
   const vars = {
     auth_player_name: account.name,
@@ -109,7 +114,8 @@ async function launch(inst, account, emit, { javaOverride } = {}) {
     clientid: '0',
     user_type: 'legacy',
     user_properties: '{}',
-    version_name: vj.id,
+    // Forge and NeoForge expect the plain Minecraft version here: they use it to leave the vanilla client jar off their module path.
+    version_name: (inst.loader === 'forge' || inst.loader === 'neoforge') ? inst.mc : vj.id,
     version_type: vj.type || 'release',
     game_directory: gameDir,
     assets_root: assets.assetsRoot,

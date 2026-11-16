@@ -18,16 +18,17 @@ npm run dist:win   # .exe installer (best built on Windows)
 
 ## What it does
 
-- **Installations**: pick any Minecraft release or snapshot, Vanilla or Fabric, and set the memory. Each one has its own folder (worlds, mods, packs, settings).
+- **Installations**: pick any Minecraft release or snapshot, with Vanilla, Fabric, Quilt, NeoForge or Forge, and set the memory. Each one has its own folder (worlds, mods, packs, settings), and you can rename it on the Installations page.
 - **Downloads everything**: the game, libraries, assets and Mojang's own bundled Java. Press **Cancel** while it's getting files ready and everything that start downloaded is removed.
 - **Mod compatibility**: before Play it reads each mod's own rules and refuses to start a game Fabric would reject, explaining the problem and offering to fix it (it tries other builds of the mods involved). Installs prefer stable releases, and an install that would break your set is taken back out.
-- **Mods, resource packs and shaders**: search Modrinth filtered to your version, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders). Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.
+- **Mods, resource packs and shaders**: search Modrinth filtered to your version and loader, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders), with an **Update all** button that only keeps an update if your mods still work together. Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.
 - **Crooli's mods**: a tab on the Mods page listing the mods and shader pack from xandertaylorx.github.io/minecraft-mods, read live from that page.
-- **Servers**: create a Minecraft server (Vanilla or Fabric) with one click, start and stop it, run commands in a console that completes them as you type, keep a whitelist (a switch plus add-by-name), flip settings like PvP and command blocks any time, copy the address to share, and open its folders.
+- **Servers**: create a Minecraft server (Vanilla, Fabric, Quilt, NeoForge or Forge) with one click, start and stop it, run commands in a console that completes them as you type, keep a whitelist (a switch plus add-by-name), flip settings like PvP and command blocks any time, edit every setting in `server.properties`, add server mods from Modrinth, copy the address to share, and open its folders.
 - **Skins**: load a PNG or copy a player's, with a 3D preview you can turn. Because the account is offline, it's applied as a resource pack when the game starts.
 - **Import**: finds installs from the Minecraft Launcher, Prism, MultiMC, CurseForge, Modrinth App and others (or any folder you point it at) and copies worlds, mods, packs and settings into a new installation. The originals are never changed.
 - **Updates**: checks GitHub on start and every 6 hours, downloads a new version in the background (checked against GitHub's checksum) and installs it when you close the launcher, or right away with Restart and update. On Mac the launcher replaces its own app, since Apple only allows the standard updater for apps signed with a paid certificate.
-- **Accounts**: offline mode only for now (singleplayer, LAN, offline-mode servers).
+- **Players**: switch between several offline players from the top right, each with their own skin (singleplayer, LAN, offline-mode servers). Microsoft accounts are not in yet.
+- **Crash helper**: when the game stops unexpectedly it explains why in plain words (out of memory, wrong Java, a mod that breaks the game, graphics driver) and offers the likely fix.
 
 Data lives in `~/Library/Application Support/CrooliLauncher` (mac) or `%APPDATA%\CrooliLauncher` (Windows).
 Set `CROOLI_HOME=/some/dir` to use a different folder.
@@ -35,9 +36,10 @@ Set `CROOLI_HOME=/some/dir` to use a different folder.
 ## Not built yet
 
 - Microsoft login (needs an Azure app registration — client ID)
-- Forge / NeoForge / Quilt, modpacks, CurseForge
+- Modpacks, CurseForge
+- A tunnel so friends outside your Wi-Fi can join a server without port forwarding
 - Microsoft skins and capes
-- Server mods and plugins from the launcher (a Fabric server has a mods folder you can fill yourself)
+- Server plugins (Paper and similar)
 
 ## Website
 

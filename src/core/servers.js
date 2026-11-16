@@ -6,6 +6,7 @@ const { spawn } = require('child_process');
 const { getJson, downloadFile, dirs } = require('./util');
 const V = require('./versions');
 const L = require('./launch');
+const loaders = require('./loaders');
 const { ensureJava } = require('./java');
 
 const FABRIC = 'https://meta.fabricmc.net/v2';
@@ -80,6 +81,27 @@ function writeProperties(srv) {
   fs.writeFileSync(file, out.filter((l, i) => l || i < out.length - 1).join('\n') + '\n');
 }
 
+// ---------- every setting in server.properties ----------
+// Settings the launcher also keeps in its own list. Editing one of these here has to update that list too, or the next
+// start would put the old value back.
+function readAllProperties(id) {
+  const file = path.join(dirOf(id), 'server.properties');
+  if (!fs.existsSync(file)) return null;
+  return readProps(id);
+}
+function writeAllProperties(id, values) {
+  const file = path.join(dirOf(id), 'server.properties');
+  const lines = fs.existsSync(file) ? fs.readFileSync(file, 'utf8').split(/\r?\n/) : ['#Minecraft server properties'];
+  const seen = new Set();
+  const out = lines.map((l) => {
+    const m = l.match(/^([^#=\s][^=]*)=(.*)$/);
+    if (m && m[1] in values) { seen.add(m[1]); return `${m[1]}=${values[m[1]]}`; }
+    return l;
+  });
+  for (const [k, v] of Object.entries(values)) if (!seen.has(k)) out.push(`${k}=${v}`);
+  fs.writeFileSync(file, out.filter((l, i) => l || i < out.length - 1).join('\n') + '\n');
+}
+
 // ---------- whitelist ----------
 const wlFile = (id) => path.join(dirOf(id), 'whitelist.json');
 function readWhitelist(id) {
@@ -136,28 +158,55 @@ function setProperty(id, key, value) {
   fs.writeFileSync(file, out.filter((l, i) => l || i < out.length - 1).join('\n') + '\n');
 }
 
-// Downloads the right jar once per version/type; re-downloads if either changes.
-async function ensureJar(srv, vj, progress) {
+// Downloads and installs the server once per version/type (again if either changes). Returns the arguments that follow the
+// memory flags: ["-jar", "x.jar", "nogui"], or for NeoForge and Forge ["@libraries/.../unix_args.txt", "nogui"].
+const TYPE_NAMES = { vanilla: 'Vanilla', fabric: 'Fabric', quilt: 'Quilt', neoforge: 'NeoForge', forge: 'Forge' };
+async function ensureServer(srv, vj, java, progress) {
   const dir = dirOf(srv.id);
   const stamp = path.join(dir, '.crooli-server.json');
-  const jarName = srv.type === 'fabric' ? 'fabric-server-launch.jar' : 'server.jar';
   let have = {};
   try { have = JSON.parse(fs.readFileSync(stamp, 'utf8')); } catch {}
-  if (have.mc === srv.mc && have.type === srv.type && fs.existsSync(path.join(dir, jarName))) return jarName;
+  if (have.mc === srv.mc && have.type === srv.type && have.launch) {
+    const probe = have.launch.find((a) => a.endsWith('.jar') || a.startsWith('@'));
+    if (probe && fs.existsSync(path.join(dir, probe.replace(/^@/, '')))) return have.launch;
+  }
 
-  progress('Downloading the server…');
+  progress(`Setting up the ${TYPE_NAMES[srv.type] || 'Vanilla'} server…`);
+  let launch;
   if (srv.type === 'fabric') {
     const loader = (await getJson(`${FABRIC}/versions/loader/${srv.mc}`))[0];
     if (!loader) throw new Error(`Fabric isn't available for Minecraft ${srv.mc} yet.`);
     const installer = (await getJson(`${FABRIC}/versions/installer`)).find((i) => i.stable) || (await getJson(`${FABRIC}/versions/installer`))[0];
-    await downloadFile(`${FABRIC}/versions/loader/${srv.mc}/${loader.loader.version}/${installer.version}/server/jar`, path.join(dir, jarName));
+    await downloadFile(`${FABRIC}/versions/loader/${srv.mc}/${loader.loader.version}/${installer.version}/server/jar`, path.join(dir, 'fabric-server-launch.jar'));
+    launch = ['-jar', 'fabric-server-launch.jar', 'nogui'];
+  } else if (srv.type === 'quilt') {
+    const inst = (await getJson('https://meta.quiltmc.org/v3/versions/installer'))[0];
+    const jar = path.join(dir, '.installers', `quilt-installer-${inst.version}.jar`);
+    await downloadFile(inst.url, jar);
+    await loaders.runInstaller({ java, jar, args: ['install', 'server', srv.mc, '--download-server', `--install-dir=${dir}`], cwd: dir, onLine: () => {} });
+    if (!fs.existsSync(path.join(dir, 'quilt-server-launch.jar'))) throw new Error('Quilt installed, but its server file wasn’t created.');
+    launch = ['-jar', 'quilt-server-launch.jar', 'nogui'];
+  } else if (srv.type === 'neoforge' || srv.type === 'forge') {
+    const isNeo = srv.type === 'neoforge';
+    const v = await loaders.pickVersion(srv.type, srv.mc);
+    if (!v) throw new Error(`${TYPE_NAMES[srv.type]} isn't available for Minecraft ${srv.mc}.`);
+    const jar = path.join(dir, '.installers', `${srv.type}-${v}-installer.jar`);
+    await downloadFile(isNeo
+      ? `https://maven.neoforged.net/releases/net/neoforged/neoforge/${v}/neoforge-${v}-installer.jar`
+      : `https://maven.minecraftforge.net/net/minecraftforge/forge/${srv.mc}-${v}/forge-${srv.mc}-${v}-installer.jar`, jar);
+    await loaders.runInstaller({ java, jar, args: ['--installServer'], cwd: dir, onLine: (l) => { if (/^Considering library|Downloading|Processor|Task:/.test(l)) progress(l.slice(0, 90)); } });
+    const base = path.join(dir, 'libraries', ...(isNeo ? ['net', 'neoforged', 'neoforge', v] : ['net', 'minecraftforge', 'forge', `${srv.mc}-${v}`]));
+    const argsFile = path.join(base, process.platform === 'win32' ? 'win_args.txt' : 'unix_args.txt');
+    if (!fs.existsSync(argsFile)) throw new Error(`${TYPE_NAMES[srv.type]} installed, but its start file wasn’t created.`);
+    launch = [`@${path.relative(dir, argsFile).split(path.sep).join('/')}`, 'nogui'];
   } else {
     const s = vj.downloads && vj.downloads.server;
     if (!s) throw new Error(`Mojang doesn't publish a server for Minecraft ${srv.mc}.`);
-    await downloadFile(s.url, path.join(dir, jarName), { sha1: s.sha1, size: s.size });
+    await downloadFile(s.url, path.join(dir, 'server.jar'), { sha1: s.sha1, size: s.size });
+    launch = ['-jar', 'server.jar', 'nogui'];
   }
-  fs.writeFileSync(stamp, JSON.stringify({ mc: srv.mc, type: srv.type }));
-  return jarName;
+  fs.writeFileSync(stamp, JSON.stringify({ mc: srv.mc, type: srv.type, launch }));
+  return launch;
 }
 
 // ---------- network ----------
@@ -195,12 +244,12 @@ async function start(srv, emit, { javaOverride } = {}) {
     if (!fs.existsSync(path.join(dirOf(srv.id), 'eula.txt'))) throw new Error('The EULA hasn’t been agreed for this server.');
     const entries = await L.manifest();
     const vj = await V.getVersionJson(srv.mc, entries);
-    const jar = await ensureJar(srv, vj, progress);
-    writeProperties(srv);
     progress('Preparing Java…');
     const java = javaOverride || await ensureJava((vj.javaVersion && vj.javaVersion.component) || 'jre-legacy', () => {});
+    const launch = await ensureServer(srv, vj, java, progress);
+    writeProperties(srv);
     const ram = srv.ram || 2048;
-    const args = [`-Xmx${ram}M`, `-Xms${Math.min(1024, ram)}M`, '-jar', jar, 'nogui'];
+    const args = [`-Xmx${ram}M`, `-Xms${Math.min(1024, ram)}M`, ...launch];
     progress(`Starting Minecraft ${srv.mc} server…`);
     const child = spawn(java, args, { cwd: dirOf(srv.id) });
     const r = running.get(srv.id);
@@ -268,4 +317,4 @@ const status = (id) => {
   return { state: r ? r.state : 'stopped', players: r ? [...r.players] : [], log: logs.get(id) || [] };
 };
 
-module.exports = { dirOf, writeEula, writeProperties, readOptions, readWhitelist, whitelistAdd, whitelistRemove, applyLive, setProperty, start, stop, stopAll, command, status, addresses, isRunning };
+module.exports = { readAllProperties, writeAllProperties, dirOf, writeEula, writeProperties, readOptions, readWhitelist, whitelistAdd, whitelistRemove, applyLive, setProperty, start, stop, stopAll, command, status, addresses, isRunning };

@@ -17,6 +17,9 @@ const crooli = require('./core/crooli-mods');
 const compat = require('./core/compat');
 const { createUpdater } = require('./core/updater');
 const servers = require('./core/servers');
+const updatesMod = require('./core/updates');
+const crash = require('./core/crash');
+const loaders = require('./core/loaders');
 
 let win, game = null;
 const send = (ch, p) => win && !win.isDestroyed() && win.webContents.send(ch, p);
@@ -64,7 +67,9 @@ ipcMain.handle('init', async () => {
   let versions = [], fabric = [];
   try { versions = await V.listVersions(); } catch (e) { send('toast', 'Could not reach Mojang: ' + e.message); }
   try { fabric = [...await V.listFabricGameVersions()]; } catch {}
-  return { settings: store.load(), versions: versions.map(v => ({ id: v.id, type: v.type })), fabric, dataDir: core.root(), version: app.getVersion(), update: updater.get() };
+  let support = { fabric, quilt: [], neoforge: [], forge: [] };
+  try { support = await Promise.race([loaders.support(new Set(fabric)), new Promise((_, no) => setTimeout(no, 8000))]); } catch {}
+  return { settings: store.load(), versions: versions.map(v => ({ id: v.id, type: v.type })), fabric, support, dataDir: core.root(), version: app.getVersion(), update: updater.get() };
 });
 
 ipcMain.handle('update:check', () => updater.check(true));
@@ -86,7 +91,45 @@ ipcMain.handle('news', async () => {
   } catch { return []; }
 });
 
-ipcMain.handle('settings:save', (_e, patch) => { const s = { ...store.load(), ...patch }; store.save(s); return s; });
+ipcMain.handle('settings:save', (_e, patch) => {
+  const s = { ...store.load(), ...patch };
+  // Renaming from Settings renames the player you're using now.
+  if (patch.username) { const a = s.accounts.find((x) => x.id === s.account); if (a) a.name = patch.username; }
+  store.save(s); return store.load();
+});
+
+// ---- players: switch between several, each with their own skin ----
+const cleanPlayerName = (n) => { n = String(n || '').replace(/[^A-Za-z0-9_]/g, '').slice(0, 16); return n.length >= 3 ? n : null; };
+ipcMain.handle('accounts:select', (_e, id) => { const s = store.load(); if (s.accounts.some((a) => a.id === id)) { s.account = id; store.save(s); } return store.load(); });
+ipcMain.handle('accounts:add', (_e, name) => {
+  const s = store.load(), n = cleanPlayerName(name);
+  if (!n) return { error: 'Player names are 3 to 16 letters, numbers or underscores.' };
+  if (s.accounts.some((a) => a.name.toLowerCase() === n.toLowerCase())) return { error: `You already have a player called ${n}.` };
+  const id = 'p' + Date.now().toString(36);
+  s.accounts.push({ id, name: n, type: 'offline' }); s.account = id; store.save(s); return store.load();
+});
+ipcMain.handle('accounts:rename', (_e, { id, name }) => {
+  const s = store.load(), n = cleanPlayerName(name), a = s.accounts.find((x) => x.id === id);
+  if (!a) return { error: 'That player isn’t there any more.' };
+  if (!n) return { error: 'Player names are 3 to 16 letters, numbers or underscores.' };
+  if (s.accounts.some((x) => x.id !== id && x.name.toLowerCase() === n.toLowerCase())) return { error: `You already have a player called ${n}.` };
+  a.name = n; store.save(s); return store.load();
+});
+ipcMain.handle('accounts:remove', (_e, id) => {
+  const s = store.load();
+  if (s.accounts.length < 2) return { error: 'You need at least one player.' };
+  s.accounts = s.accounts.filter((a) => a.id !== id);
+  if (s.account === id) s.account = s.accounts[0].id;
+  store.save(s); if (id !== 'main') skin.clear(id); return store.load();
+});
+
+// Renaming an installation changes only its label; its folder and files stay where they are.
+ipcMain.handle('instance:rename', (_e, { id, name }) => {
+  const s = store.load(), i = s.instances.find((x) => x.id === id), n = String(name || '').trim().slice(0, 32);
+  if (!i) return { error: 'That installation isn’t there any more.' };
+  if (!n) return { error: 'Give it a name.' };
+  i.name = n; store.save(s); return s;
+});
 
 ipcMain.handle('instance:save', (_e, inst) => {
   const s = store.load();
@@ -109,12 +152,14 @@ ipcMain.handle('instance:delete', (_e, id) => {
 ipcMain.handle('instance:open', (_e, id) => { fs.mkdirSync(instDir(id), { recursive: true }); return shell.openPath(instDir(id)); });
 
 let launching = null; // the job for a launch that is still getting files ready
+let gameLog = [], killedByUser = false;
+const keepLog = (line) => { gameLog.push(String(line)); if (gameLog.length > 300) gameLog.splice(0, gameLog.length - 300); };
 ipcMain.handle('game:launch', async (_e, id, opts = {}) => {
   if (game || launching) return { error: 'The game is already running.' };
   const inst = getInst(id), s = store.load();
   if (!inst) return { error: 'No instance selected.' };
   // Don't start a game that Fabric is going to refuse: check the mods' own rules first.
-  if (inst.loader === 'fabric' && !opts.force) {
+  if (['fabric', 'quilt'].includes(inst.loader) && !opts.force) {
     let problems = [];
     try { problems = compat.check(compat.scan(instDir(id))); } catch {}
     if (problems.length) return { conflicts: problems.map((p) => p.text) };
@@ -123,10 +168,15 @@ ipcMain.handle('game:launch', async (_e, id, opts = {}) => {
   launching = job;
   try {
     send('game:state', 'preparing');
-    game = await job.run(() => L.launch(inst, { name: s.username }, (t, p) => send('game:' + t, p), { javaOverride: s.javaPath || null }));
+    gameLog = []; killedByUser = false;
+    const startedAt = Date.now();
+    game = await job.run(() => L.launch(inst, { name: s.username, id: s.account }, (t, p) => { if (t === 'log') keepLog(p); send('game:' + t, p); }, { javaOverride: s.javaPath || null }));
     launching = null;
     send('game:state', 'running');
-    game.on('exit', code => { game = null; send('game:state', 'idle'); send('game:log', `Game exited with code ${code}`); });
+    game.on('exit', code => {
+      game = null; send('game:state', 'idle'); send('game:log', `Game exited with code ${code}`);
+      if (code && !killedByUser) { try { reportCrash(inst, startedAt, code); } catch (e) { send('game:log', `Couldn't read the crash report: ${e.message}`); } }
+    });
     game.on('error', err => { game = null; send('game:state', 'idle'); send('game:log', 'Failed to start: ' + err.message); });
     return { ok: true };
   } catch (e) {
@@ -142,7 +192,33 @@ ipcMain.handle('game:launch', async (_e, id, opts = {}) => {
 });
 // Stops a launch that is still downloading, then deletes the files that launch had downloaded.
 ipcMain.handle('game:cancel', () => { if (launching) { send('game:state', 'cancelling'); launching.abort(); } return { ok: true }; });
-ipcMain.handle('game:kill', () => { if (game) game.kill(); });
+ipcMain.handle('game:kill', () => { if (game) { killedByUser = true; game.kill(); } });
+
+// ---- when the game crashes: explain it in plain words and offer the likely fix ----
+function reportCrash(inst, startedAt, code) {
+  const gameDir = instDir(inst.id);
+  const report = crash.newestReport(gameDir, startedAt);
+  let text = '';
+  if (report) { try { text = fs.readFileSync(report, 'utf8'); } catch {} }
+  const tail = gameLog.slice(-80).join('\n');
+  const d = crash.diagnose(text + '\n' + tail, inst);
+  send('game:crash', { ...d, instId: inst.id, instName: inst.name, code, report, details: [`Crooli MC Launcher ${app.getVersion()}`, `Installation: ${inst.name} (${inst.loader} ${inst.mc}, ${inst.ram} MB)`, `Exit code: ${code}`, '', text ? text.slice(0, 6000) : '(no crash report was written)', '', '--- last lines of output ---', tail].join('\n') });
+}
+ipcMain.handle('crash:act', (_e, { instId, action }) => {
+  const inst = getInst(instId); if (!inst || !action) return { error: 'That installation isn’t there any more.' };
+  const s = store.load();
+  if (action.kind === 'ram') { const i = s.instances.find((x) => x.id === instId); i.ram = Math.min(32768, Math.max(1024, +action.value || i.ram + 2048)); store.save(s); return { ok: true, settings: s, note: `Memory is now ${Math.round(i.ram / 1024)} GB. Press Play to try again.` }; }
+  if (action.kind === 'java') { s.javaPath = null; store.save(s); return { ok: true, settings: s, note: 'Using the launcher’s own Java. Press Play to try again.' }; }
+  if (action.kind === 'disable') {
+    const jar = compat.scan(instDir(instId)).find((j) => j.entries.some((e) => e.id === action.modId));
+    if (!jar) return { error: 'Couldn’t find that mod to turn it off.' };
+    packs.toggle(instDir(instId), 'mod', jar.file, inst.mc);
+    return { ok: true, settings: s, note: `Turned off ${action.modId}. Press Play to try again.` };
+  }
+  if (action.kind === 'folder') { shell.openPath(instDir(instId)); return { ok: true }; }
+  return { ok: true, settings: s };
+});
+ipcMain.handle('crash:open-report', (_e, p) => { if (typeof p === 'string' && p.startsWith(core.dirs.instances())) shell.showItemInFolder(p); return { ok: true }; });
 
 // ---- mods, resource packs and shader packs (kind is "mod", "resourcepack" or "shader") ----
 const KINDS = ['mod', 'resourcepack', 'shader'];
@@ -151,8 +227,8 @@ ipcMain.handle('packs:search', async (_e, args) => { try { return await mods.sea
 ipcMain.handle('packs:install', async (_e, { id, projectId, type }) => {
   const inst = getInst(id), kind = kindOf(type);
   if (!inst) return { error: 'Pick an installation first.' };
-  if (kind === 'mod' && inst.loader !== 'fabric') return { error: 'Switch this installation to Fabric first.' };
-  if (kind === 'shader' && inst.loader !== 'fabric') return { error: 'Shader packs need Fabric and Iris. Make a Fabric installation.' };
+  if (kind === 'mod' && inst.loader === 'vanilla') return { error: 'Vanilla can’t load mods. Make a Fabric, Quilt, NeoForge or Forge installation first.' };
+  if (kind === 'shader' && !loaders.SHADER_LOADERS.includes(inst.loader)) return { error: 'Shader packs run through Iris, which needs Fabric, Quilt or NeoForge.' };
   // For mods: remember what was there, install, and make sure the result still works together. A mod that
   // would leave the installation with a conflict is fixed if possible and otherwise taken back out.
   const dir = path.join(instDir(id), 'mods');
@@ -173,6 +249,22 @@ ipcMain.handle('packs:install', async (_e, { id, projectId, type }) => {
       }
     }
     return res;
+  } catch (e) { return { error: e.message }; }
+});
+// "Update all" for mods
+ipcMain.handle('mods:updates', async (_e, id) => {
+  const inst = getInst(id); if (!inst || inst.loader === 'vanilla') return { updates: [] };
+  try { return { updates: await updatesMod.plan(instDir(id), inst.mc, inst.loader) }; } catch (e) { return { error: 'Couldn’t reach Modrinth to check for updates.' }; }
+});
+ipcMain.handle('mods:update-all', async (_e, { id, updates }) => {
+  const inst = getInst(id); if (!inst) return { error: 'Pick an installation first.' };
+  if (game) return { error: 'Close Minecraft first.' };
+  // Re-plan on our side: never trust download addresses sent from the page.
+  try {
+    const wanted = new Set((updates || []).map((u) => u.file));
+    const plan = (await updatesMod.plan(instDir(id), inst.mc, inst.loader)).filter((u) => wanted.has(u.file));
+    const res = await updatesMod.apply(instDir(id), plan, (label, d, t) => send('game:progress-mods', { label, done: d, total: t }));
+    return { ...res, list: packs.list(instDir(id), 'mod', inst.mc) };
   } catch (e) { return { error: e.message }; }
 });
 ipcMain.handle('packs:list', (_e, { id, type }) => packs.list(instDir(id), kindOf(type), (getInst(id) || {}).mc));
@@ -218,7 +310,7 @@ ipcMain.handle('servers:save', (_e, input) => {
     id: input.id || (String(input.name || 'server').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'server') + '-' + Date.now().toString(36),
     name: String(input.name || 'My Server').slice(0, 40),
     mc: String(input.mc),
-    type: input.type === 'fabric' ? 'fabric' : 'vanilla',
+    type: ['fabric', 'quilt', 'neoforge', 'forge'].includes(input.type) ? input.type : 'vanilla',
     ram: clampInt(input.ram, 1024, 32768, 2048),
     port: clampInt(input.port, 1024, 65535, 25565),
     gamemode: ['survival', 'creative', 'adventure', 'spectator'].includes(input.gamemode) ? input.gamemode : 'survival',
@@ -290,6 +382,52 @@ ipcMain.handle('servers:whitelist-remove', (_e, { id, name }) => {
   try { servers.whitelistRemove(srv, name); return { ok: true }; } catch (e) { return { error: e.message }; }
 });
 ipcMain.handle('servers:whitelist-list', (_e, id) => ({ names: servers.readWhitelist(id) }));
+// The full server.properties as a list you can edit.
+ipcMain.handle('servers:props', (_e, id) => { const p = servers.readAllProperties(id); return p ? { props: p } : { props: null }; });
+ipcMain.handle('servers:props-save', (_e, { id, values }) => {
+  const s = store.load(), srv = (s.servers || []).find((x) => x.id === id);
+  if (!srv) return { error: 'Pick a server first.' };
+  const clean = {};
+  for (const [k, v] of Object.entries(values || {})) {
+    if (!/^[a-z0-9][a-z0-9.-]*$/.test(k)) return { error: `“${k}” isn’t a valid setting name.` };
+    clean[k] = String(v).replace(/[\r\n]+/g, ' ').slice(0, 1000);
+  }
+  // keep the launcher's own copy of the settings it manages in step
+  const num = (v, lo, hi) => { const n = parseInt(v, 10); return Number.isFinite(n) ? Math.min(hi, Math.max(lo, n)) : null; };
+  if ('server-port' in clean) { const n = num(clean['server-port'], 1024, 65535); if (n == null) return { error: 'The port must be a number from 1024 to 65535.' }; srv.port = n; clean['server-port'] = String(n); }
+  if ('max-players' in clean) { const n = num(clean['max-players'], 1, 1000); if (n == null) return { error: 'Max players must be a number.' }; srv.maxPlayers = n; clean['max-players'] = String(n); }
+  if ('online-mode' in clean) srv.offline = clean['online-mode'] !== 'true';
+  if ('gamemode' in clean && ['survival', 'creative', 'adventure', 'spectator'].includes(clean.gamemode)) srv.gamemode = clean.gamemode;
+  if ('difficulty' in clean && ['peaceful', 'easy', 'normal', 'hard'].includes(clean.difficulty)) srv.difficulty = clean.difficulty;
+  if ('motd' in clean) srv.motd = clean.motd;
+  if ('white-list' in clean) { srv.whitelist = clean['white-list'] === 'true'; clean['enforce-whitelist'] = clean['white-list']; }
+  for (const k of Object.keys(clean)) if (k !== 'white-list' && k !== 'enforce-whitelist' && /^(pvp|allow-flight|enable-command-block|allow-nether|spawn-monsters|spawn-animals|spawn-npcs)$/.test(k)) srv.opts = { ...(srv.opts || {}), [k]: clean[k] === 'true' };
+  servers.writeAllProperties(id, clean);
+  store.save(s);
+  return { ok: true, settings: s, running: servers.isRunning() };
+});
+
+// ---- mods for a server ----
+const srvDir = (id) => servers.dirOf(id);
+const srvModded = (id) => { const x = getSrv(id); return x && ['fabric', 'quilt', 'neoforge', 'forge'].includes(x.type) ? x : null; };
+ipcMain.handle('servers:mods-list', (_e, id) => { const x = srvModded(id); return x ? { list: packs.list(srvDir(id), 'mod', x.mc) } : { error: 'This server doesn’t use mods.' }; });
+ipcMain.handle('servers:mods-search', async (_e, { id, query, offset }) => {
+  const x = srvModded(id); if (!x) return { error: 'This server doesn’t use mods.' };
+  try { return await mods.search({ query, mc: x.mc, loader: x.type, type: 'mod', offset: offset || 0, serverSide: true }); } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('servers:mods-install', async (_e, { id, projectId }) => {
+  const x = srvModded(id); if (!x) return { error: 'This server doesn’t use mods.' };
+  try { const res = await mods.install(srvDir(id), projectId, x.mc, x.type, 'mod'); return { ...res, list: packs.list(srvDir(id), 'mod', x.mc) }; } catch (e) { return { error: e.message }; }
+});
+ipcMain.handle('servers:mods-toggle', (_e, { id, file }) => { const x = srvModded(id); if (!x) return { error: 'This server doesn’t use mods.' }; try { packs.toggle(srvDir(id), 'mod', file, x.mc); return { list: packs.list(srvDir(id), 'mod', x.mc) }; } catch (e) { return { error: e.message }; } });
+ipcMain.handle('servers:mods-remove', (_e, { id, file }) => { const x = srvModded(id); if (!x) return { error: 'This server doesn’t use mods.' }; packs.remove(srvDir(id), 'mod', file, x.mc); return { list: packs.list(srvDir(id), 'mod', x.mc) }; });
+ipcMain.handle('servers:mods-pick', async (_e, id) => {
+  const x = srvModded(id); if (!x) return { error: 'This server doesn’t use mods.' };
+  const r = await dialog.showOpenDialog(win, { title: 'Choose mods for this server', properties: ['openFile', 'multiSelections'], filters: [{ name: 'Mods', extensions: ['jar'] }] });
+  if (r.canceled) return { canceled: true };
+  const results = packs.addLocal(srvDir(id), r.filePaths, { loader: x.type });
+  return { results, list: packs.list(srvDir(id), 'mod', x.mc) };
+});
 ipcMain.handle('servers:open', (_e, { id, sub }) => {
   const where = { world: 'world', mods: 'mods' }[sub] || '';
   const p = path.join(servers.dirOf(id), where);
@@ -298,9 +436,9 @@ ipcMain.handle('servers:open', (_e, { id, sub }) => {
 });
 
 // ---- skins ----
-ipcMain.handle('skin:load', () => skin.load());
-ipcMain.handle('skin:save', (_e, s) => { try { skin.save(s); return { ok: true }; } catch (e) { return { error: e.message }; } });
-ipcMain.handle('skin:clear', () => { skin.clear(); return { ok: true }; });
+ipcMain.handle('skin:load', () => skin.load(store.load().account));
+ipcMain.handle('skin:save', (_e, s) => { try { skin.save(s, store.load().account); return { ok: true }; } catch (e) { return { error: e.message }; } });
+ipcMain.handle('skin:clear', () => { skin.clear(store.load().account); return { ok: true }; });
 ipcMain.handle('skin:lookup', async (_e, name) => { try { return await skin.lookup(String(name).trim()); } catch (e) { return { error: e.message }; } });
 
 // ---- importing installs from other launchers ----

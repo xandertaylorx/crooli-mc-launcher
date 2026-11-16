@@ -1,6 +1,8 @@
 const path = require('path');
 const { getJson, downloadFile } = require('./util');
 const { dirFor } = require('./packs');
+const { MOD_LOADERS } = require('./loaders');
+const loadersOf = (l) => MOD_LOADERS[l] || [l];
 
 const API = 'https://api.modrinth.com/v2';
 const q = o => encodeURIComponent(JSON.stringify(o));
@@ -10,12 +12,13 @@ const TYPES = ['mod', 'resourcepack', 'shader'];
 //   mod:          Fabric mods for the version
 //   resourcepack: packs for the version
 //   shader:       packs that Iris can load
-async function search({ query = '', mc, loader = 'fabric', type = 'mod', offset = 0 }) {
+async function search({ query = '', mc, loader = 'fabric', type = 'mod', offset = 0, serverSide = false }) {
   if (!TYPES.includes(type)) throw new Error('Unknown type');
   const facets = [[`project_type:${type}`]];
-  if (type === 'mod') facets.push([`categories:${loader}`]);
+  if (type === 'mod') facets.push(loadersOf(loader).map((l) => `categories:${l}`));
   if (type === 'shader') facets.push(['categories:iris']);
   if (mc) facets.push([`versions:${mc}`]);
+  if (serverSide) facets.push(['server_side:required', 'server_side:optional']); // mods a server can actually use
   const url = `${API}/search?query=${encodeURIComponent(query)}&facets=${q(facets)}&limit=20&offset=${offset}&index=${query ? 'relevance' : 'downloads'}`;
   const r = await getJson(url);
   return {
@@ -30,7 +33,7 @@ async function search({ query = '', mc, loader = 'fabric', type = 'mod', offset 
 // Newest build for this game version. Resource packs and shaders are loose about versions, so if nothing is
 // marked for this exact version the newest one is used and the caller is told.
 async function latestVersion(projectId, mc, loader, type) {
-  const loaders = type === 'mod' ? `&loaders=${q([loader])}` : '';
+  const loaders = type === 'mod' ? `&loaders=${q(loadersOf(loader))}` : '';
   let vs = await getJson(`${API}/project/${projectId}/version?game_versions=${q([mc])}${loaders}`);
   // Prefer stable releases. Betas and alphas are only used when there is nothing stable for this version,
   // because mods are tested against each other's stable builds (a beta of one can break another).

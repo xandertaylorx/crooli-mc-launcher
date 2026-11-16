@@ -9,8 +9,9 @@ const packs = require('./packs');
 
 const PACK_NAME = 'crooli-skin.zip';
 const NAMES = ['alex', 'ari', 'efe', 'kai', 'makena', 'noor', 'steve', 'sunny', 'zuri'];
-const skinDir = () => path.join(root(), 'skin');
-const files = () => ({ wide: path.join(skinDir(), 'classic.png'), slim: path.join(skinDir(), 'slim.png'), meta: path.join(skinDir(), 'skin.json') });
+// Each player has their own skin. The first player ('main') keeps the original folder.
+const skinDir = (id = 'main') => (id === 'main' ? path.join(root(), 'skin') : path.join(root(), 'skins', path.basename(String(id))));
+const files = (id) => ({ wide: path.join(skinDir(id), 'classic.png'), slim: path.join(skinDir(id), 'slim.png'), meta: path.join(skinDir(id), 'skin.json') });
 
 // The resource pack format number lives in the game jar. Its shape changed over the years.
 function packFormat(jarPath) {
@@ -46,9 +47,9 @@ function buildPack(wide, slim, fmt) {
 
 // Called right before the game starts. With a saved skin, installs and enables the pack; without one,
 // removes it so the default skins come back.
-function apply(instDir, jarPath, mc) {
+function apply(instDir, jarPath, mc, accountId) {
   const dest = path.join(packs.dirFor(instDir, 'resourcepack'), PACK_NAME);
-  const f = files();
+  const f = files(accountId);
   if (fs.existsSync(f.wide) && fs.existsSync(f.slim)) {
     fs.mkdirSync(path.dirname(dest), { recursive: true });
     buildPack(fs.readFileSync(f.wide), fs.readFileSync(f.slim), packFormat(jarPath)).writeZip(dest);
@@ -63,24 +64,24 @@ function apply(instDir, jarPath, mc) {
 const dataUrl = (buf) => `data:image/png;base64,${buf.toString('base64')}`;
 const fromDataUrl = (u) => Buffer.from(String(u).replace(/^data:image\/png;base64,/, ''), 'base64');
 
-function load() {
-  const f = files();
+function load(id) {
+  const f = files(id);
   if (!fs.existsSync(f.wide) || !fs.existsSync(f.slim)) return null;
   let meta = {};
   try { meta = JSON.parse(fs.readFileSync(f.meta, 'utf8')); } catch {}
   return { ...meta, wide: dataUrl(fs.readFileSync(f.wide)), slim: dataUrl(fs.readFileSync(f.slim)) };
 }
-function save({ wide, slim, name, model }) {
-  const f = files();
+function save({ wide, slim, name, model }, id) {
+  const f = files(id);
   const a = fromDataUrl(wide), b = fromDataUrl(slim);
   // A real PNG starts with these 8 bytes; refuse anything else so junk never lands in a resource pack.
   const png = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
   if (!a.subarray(0, 8).equals(png) || !b.subarray(0, 8).equals(png) || a.length > 200000 || b.length > 200000) throw new Error('That isn’t a valid skin image.');
-  fs.mkdirSync(skinDir(), { recursive: true });
+  fs.mkdirSync(skinDir(id), { recursive: true });
   fs.writeFileSync(f.wide, a); fs.writeFileSync(f.slim, b);
   fs.writeFileSync(f.meta, JSON.stringify({ name: String(name || 'My skin').slice(0, 40), model: model === 'slim' ? 'slim' : 'classic' }));
 }
-function clear() { fs.rmSync(skinDir(), { recursive: true, force: true }); }
+function clear(id) { fs.rmSync(skinDir(id), { recursive: true, force: true }); }
 
 // Fetch a player's current skin from Mojang by name, so someone can start from a skin they already have.
 async function lookup(name) {

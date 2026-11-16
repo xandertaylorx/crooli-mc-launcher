@@ -18,10 +18,14 @@
       <button class="tab" data-view="settings">Settings</button>
     </nav>
     <button class="theme-toggle" id="theme-toggle" type="button" hidden aria-label="Switch to light theme" aria-pressed="true"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
-    <label class="player" title="Change your player name">
-      <canvas id="face" width="8" height="8"></canvas>
-      <input id="in-name" type="text" maxlength="16" spellcheck="false" aria-label="Player name">
-    </label>
+    <div class="player-wrap">
+      <button class="player" id="player-btn" type="button" aria-haspopup="menu" aria-expanded="false" title="Switch player">
+        <canvas id="face" width="8" height="8"></canvas>
+        <span id="player-name"></span>
+        <svg class="chev" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </button>
+      <div id="acct-menu" class="acct-menu" role="menu" hidden></div>
+    </div>
   </header>
 
   <div id="update-bar" class="update-bar" hidden>
@@ -77,8 +81,13 @@
         <button id="add-folder" class="mc-btn small" type="button">Add a folder</button>
       </div>
       <div id="shader-hint" class="hint-bar" hidden>
-        <span>Shader packs need Iris, a Fabric mod, to run.</span>
+        <span>Shader packs need Iris, a mod for Fabric, Quilt and NeoForge, to run.</span>
         <button id="install-iris" class="mc-btn small green" type="button">Install Iris</button>
+      </div>
+      <div id="upd-bar" class="hint-bar" hidden>
+        <span id="upd-text"></span>
+        <button id="upd-go" class="mc-btn small green" type="button">Update all</button>
+        <button id="upd-no" class="link quiet" type="button">Not now</button>
       </div>
       <div class="split">
         <div class="pane">
@@ -89,7 +98,7 @@
           <div id="mod-results" class="rows"></div>
         </div>
         <div class="pane side">
-          <h2 id="installed-title">Installed</h2>
+          <div class="side-head"><h2 id="installed-title">Installed</h2><button id="upd-check" class="link quiet" type="button" hidden>Check for updates</button></div>
           <div id="mod-installed" class="rows compact"></div>
         </div>
       </div>
@@ -117,7 +126,7 @@
             <label>Version<select id="f-version"></select></label>
             <label class="check"><input id="f-snap" type="checkbox">Include snapshots</label>
             <label>Mods
-              <select id="f-loader"><option value="fabric">Fabric, mods allowed</option><option value="vanilla">Vanilla, no mods</option></select>
+              <select id="f-loader"><option value="fabric">Fabric, mods allowed</option><option value="quilt">Quilt, mods allowed</option><option value="neoforge">NeoForge, mods allowed</option><option value="forge">Forge, mods allowed</option><option value="vanilla">Vanilla, no mods</option></select>
             </label>
             <label>Memory
               <select id="f-ram"><option value="2048">2 GB</option><option value="4096" selected>4 GB</option><option value="6144">6 GB</option><option value="8192">8 GB</option></select>
@@ -152,6 +161,8 @@
               <button class="subtab active" type="button" data-srvtab="console">Console</button>
               <button class="subtab" type="button" data-srvtab="players">Players</button>
               <button class="subtab" type="button" data-srvtab="options">Options</button>
+              <button class="subtab" type="button" data-srvtab="props">Properties</button>
+              <button class="subtab" type="button" data-srvtab="mods" id="srvtab-mods" hidden>Mods</button>
             </div>
 
             <div class="srv-pane" id="srvp-console">
@@ -184,6 +195,28 @@
               <div id="so-list" class="rows compact"></div>
               <p class="hint" id="so-hint">Changes are saved straight away. A running server picks most of them up when it restarts.</p>
             </div>
+            <div class="srv-pane" id="srvp-props" hidden>
+              <form id="sp-bar" class="search" autocomplete="off">
+                <input id="sp-filter" type="search" placeholder="Filter settings" spellcheck="false" aria-label="Filter settings">
+                <button id="sp-save" class="mc-btn small green" type="submit" disabled>Save changes</button>
+              </form>
+              <div id="sp-list" class="rows compact"></div>
+              <p class="hint" id="sp-hint"></p>
+            </div>
+
+            <div class="srv-pane" id="srvp-mods" hidden>
+              <form id="sm-search" class="search" autocomplete="off">
+                <input id="sm-q" type="search" placeholder="Search Modrinth for server mods" spellcheck="false" aria-label="Search for server mods">
+                <button class="mc-btn small" type="submit">Search</button>
+                <button class="mc-btn small" type="button" id="sm-add">Add a file</button>
+              </form>
+              <div class="split sm-split">
+                <div id="sm-results" class="rows"></div>
+                <div><h2 class="sm-h">On this server</h2><div id="sm-installed" class="rows compact"></div></div>
+              </div>
+              <p class="hint">Only mods that run on a server are listed. Changes apply when the server restarts.</p>
+            </div>
+
             <div class="srv-links">
               <button class="link quiet" type="button" data-open="">Server folder</button>
               <button class="link quiet" type="button" data-open="world">World folder</button>
@@ -200,7 +233,7 @@
               <label>Name<input id="sf-name" type="text" value="My Server" maxlength="40"></label>
               <label>Version<select id="sf-version"></select></label>
               <label>Type
-                <select id="sf-type"><option value="vanilla">Vanilla</option><option value="fabric">Fabric, for server mods</option></select>
+                <select id="sf-type"><option value="vanilla">Vanilla</option><option value="fabric">Fabric, for server mods</option><option value="quilt">Quilt, for server mods</option><option value="neoforge">NeoForge, for server mods</option><option value="forge">Forge, for server mods</option></select>
               </label>
               <label>Memory
                 <select id="sf-ram"><option value="2048">2 GB</option><option value="4096" selected>4 GB</option><option value="6144">6 GB</option><option value="8192">8 GB</option></select>
@@ -305,6 +338,12 @@
       <button id="conflict-cancel" class="link quiet" type="button">Cancel</button>
       <span id="conflict-status" class="sub"></span>
     </div>
+  </dialog>
+
+  <dialog id="crash-dialog" class="sheet" aria-labelledby="crash-title">
+    <div class="sheet-head"><h2 id="crash-title">Minecraft stopped unexpectedly</h2></div>
+    <p id="crash-why" class="sub"></p>
+    <div class="sheet-foot" id="crash-actions"></div>
   </dialog>
 
   <div id="toast" role="status"></div>

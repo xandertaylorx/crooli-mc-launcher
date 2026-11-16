@@ -62,7 +62,7 @@ async function list() {
 async function install(instDir, inst, modId) {
   const m = (await list()).find((x) => x.id === modId);
   if (!m) throw new Error('That mod isn’t on the page any more.');
-  if (inst.loader !== 'fabric') throw new Error('These need a Fabric installation. Make one on the Installations tab.');
+  if (!['fabric', 'quilt'].includes(inst.loader)) throw new Error('These need a Fabric or Quilt installation. Make one on the Installations tab.');
   if (m.mc && m.mc !== inst.mc) throw new Error(`${m.name} is built for Minecraft ${m.mc}, and this installation is ${inst.mc}.`);
   const dir = packs.dirFor(instDir, m.kind);
   fs.mkdirSync(dir, { recursive: true });
@@ -73,7 +73,7 @@ async function install(instDir, inst, modId) {
   await downloadFile(m.download, path.join(dir, m.file));
   const notes = [];
   if (m.kind === 'mod') {
-    try { await modrinth.install(instDir, 'fabric-api', inst.mc, 'fabric', 'mod'); } catch { notes.push('Couldn’t add Fabric API. Install it from the Mods tab.'); }
+    try { await modrinth.install(instDir, 'fabric-api', inst.mc, inst.loader, 'mod'); } catch { notes.push('Couldn’t add Fabric API. Install it from the Mods tab.'); }
   } else {
     const hasIris = packs.list(instDir, 'mod').some((f) => /iris/i.test(f.file) && f.enabled);
     if (!hasIris) notes.push('Shader packs need Iris. The Shaders tab can install it.');
