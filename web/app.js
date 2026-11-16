@@ -70,19 +70,26 @@ const osName = isMac ? 'macOS' : isWin ? 'Windows' : null
 
 function showRelease(rel) {
   const files = rel.assets || []
-  const dmg = files.find((a) => /arm64.*\.dmg$/i.test(a.name)) || files.find((a) => /\.dmg$/i.test(a.name))
+  const dmg = files.find((a) => /arm64.*\.dmg$/i.test(a.name)) || files.find((a) => /\.dmg$/i.test(a.name)) // Apple Silicon first; Intel is under All downloads
   const exe = files.find((a) => /\.exe$/i.test(a.name))
   const mine = isMac ? dmg : isWin ? exe : null
   const version = rel.tag_name.replace(/^v/, '')
+  // The version badge above the headline links to the release notes.
+  const ver = $('#ver')
+  ver.href = rel.html_url
+  $('#ver-num').textContent = version
+  if (rel.published_at) $('#ver-date').textContent = new Date(rel.published_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
+  ver.hidden = false
   const dl = $('#dl-main')
   if (mine) {
     dl.href = mine.browser_download_url
     dl.firstChild.textContent = `Download for ${osName} `
     $('#dl-size').textContent = fmtSize(mine.size)
     $('#hero-dl').textContent = `Download for ${osName}`
-    $('#platform-note').textContent = `Version ${version}. Other systems are under All downloads.`
+    $('#platform-note').textContent = `Version ${version}. Other systems are under All downloads. The launcher tells you when a newer version is out.`
   } else {
     dl.href = rel.html_url
+    $('#platform-note').textContent = `Version ${version}. Pick the file for your system on the release page.`
   }
 }
 function noRelease() {

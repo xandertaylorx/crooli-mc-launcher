@@ -10,9 +10,11 @@ const store = require('./core/store');
 const V = require('./core/versions');
 const L = require('./core/launch');
 const mods = require('./core/modrinth');
+const { createUpdater } = require('./core/updater');
 
 let win, game = null;
 const send = (ch, p) => win && !win.isDestroyed() && win.webContents.send(ch, p);
+const updater = createUpdater({ app, shell, send });
 const instDir = id => path.join(core.dirs.instances(), path.basename(id));
 const getInst = id => store.load().instances.find(i => i.id === id);
 
@@ -29,6 +31,8 @@ function createWindow() {
 app.whenReady().then(() => {
   if (process.platform === 'win32') Menu.setApplicationMenu(null);
   createWindow();
+  // Packaged builds check on their own; CROOLI_UPDATE_CHECK=1 lets a dev build try it too.
+  if (app.isPackaged || process.env.CROOLI_UPDATE_CHECK) updater.start();
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 app.on('window-all-closed', () => app.quit());
@@ -38,7 +42,14 @@ ipcMain.handle('init', async () => {
   let versions = [], fabric = [];
   try { versions = await V.listVersions(); } catch (e) { send('toast', 'Could not reach Mojang: ' + e.message); }
   try { fabric = [...await V.listFabricGameVersions()]; } catch {}
-  return { settings: store.load(), versions: versions.map(v => ({ id: v.id, type: v.type })), fabric, dataDir: core.root() };
+  return { settings: store.load(), versions: versions.map(v => ({ id: v.id, type: v.type })), fabric, dataDir: core.root(), version: app.getVersion(), update: updater.get() };
+});
+
+ipcMain.handle('update:check', () => updater.check(true));
+ipcMain.handle('update:apply', () => {
+  if (game) return { error: 'Close Minecraft first, then update.' };
+  updater.apply();
+  return { ok: true };
 });
 
 // Mojang's public Java Edition patch notes (what the official launcher shows)

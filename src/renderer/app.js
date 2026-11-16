@@ -357,11 +357,54 @@ async function runSearch() {
 }
 $('#mod-search').onsubmit = e => { e.preventDefault(); runSearch(); };
 
+// ================= updates =================
+let update = null, updateDismissed = null;
+function renderUpdate(u) {
+  update = u || update;
+  if (!update) return;
+  const bar = $('#update-bar'), btn = $('#update-btn'), v = update.latest;
+  const sUpdate = $('#s-update');
+  const show = ['available', 'downloading', 'ready'].includes(update.state) && updateDismissed !== `${v}:${update.state}`;
+  bar.hidden = !show;
+  if (update.state === 'available') {
+    $('#update-text').textContent = `Crooli MC Launcher ${v} is out.`;
+    btn.hidden = false; btn.textContent = update.auto ? 'Getting it ready…' : 'Download update';
+    btn.disabled = !!update.auto;
+    sUpdate.textContent = `Version ${v} is available.`;
+  } else if (update.state === 'downloading') {
+    $('#update-text').textContent = `Downloading version ${v}… ${update.percent || 0}%`;
+    btn.hidden = true;
+    sUpdate.textContent = `Downloading version ${v}.`;
+  } else if (update.state === 'ready') {
+    $('#update-text').textContent = `Version ${v} is ready to install.`;
+    btn.hidden = false; btn.disabled = false; btn.textContent = 'Restart to update';
+    sUpdate.textContent = `Version ${v} installs when you restart.`;
+  } else if (update.state === 'latest') {
+    sUpdate.textContent = 'You have the latest version.';
+  } else if (update.state === 'error') {
+    sUpdate.textContent = "Couldn't reach GitHub to check for updates.";
+  }
+}
+$('#update-btn').onclick = async () => {
+  const r = await api.applyUpdate();
+  if (r && r.error) return toast(r.error);
+  if (update.state !== 'ready') toast('Opening the download in your browser');
+};
+$('#update-later').onclick = () => { updateDismissed = `${update.latest}:${update.state}`; $('#update-bar').hidden = true; };
+$('#btn-check').onclick = async () => {
+  const b = $('#btn-check'); b.disabled = true; b.textContent = 'Checking…';
+  renderUpdate(await api.checkUpdate());
+  b.disabled = false; b.textContent = 'Check for updates';
+};
+api.on('update', renderUpdate);
+
 // ================= boot =================
 (async () => {
   const init = await api.init();
   S = init.settings; versions = init.versions; fabricSet = new Set(init.fabric);
   $('#s-dir').textContent = init.dataDir;
+  $('#s-version').textContent = init.version;
+  renderUpdate(init.update);
   fillVersions(); await render(); sizeScene();
   loadNews();
 })();

@@ -41,6 +41,12 @@ nav { display: flex; height: 100%; }
 #face { width: 28px; height: 28px; image-rendering: pixelated; box-shadow: 0 0 0 2px var(--edge); }
 .player input[type=text] { width: 120px; background: none; border: 0; padding: 0; color: var(--text); font: 700 15px var(--body); outline: none; }
 
+/* ---------- update banner ---------- */
+.update-bar { display: flex; align-items: center; gap: 14px; padding: 9px 18px; flex: none;
+  background: #2f4a26; border-bottom: 2px solid var(--edge); font-weight: 700; }
+.update-bar[hidden] { display: none; }
+.update-bar #update-text { flex: 1; min-width: 0; }
+
 main { flex: 1; min-height: 0; display: flex; }
 .view { display: none; flex: 1; min-width: 0; flex-direction: column; }
 .view.active { display: flex; }
@@ -136,6 +142,9 @@ select option { background: var(--slate-down); }
 .form label { display: flex; flex-direction: column; gap: 6px; font-weight: 700; font-size: 14px; }
 .form label.check { flex-direction: row; align-items: center; gap: 8px; font-weight: 400; }
 .form .mc-btn { align-self: flex-start; margin-top: 4px; }
+.about { display: flex; align-items: center; gap: 18px; margin-top: 28px; max-width: 460px; padding: 14px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.about p { flex: 1; margin: 0; }
+.about .sub { margin: 0; font-size: 13.5px; }
 .note { margin-top: 28px; max-width: 64ch; color: var(--muted); }
 code { font: 13px ui-monospace, Menlo, Consolas, monospace; color: var(--text); user-select: text; }
 

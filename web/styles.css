@@ -141,6 +141,17 @@ section[id] { scroll-margin-top: 96px; }
 /* ---------- 1. intro ---------- */
 .intro { max-width: 980px; margin: 0 auto; padding: clamp(72px, 11vw, 150px) var(--side) clamp(56px, 7vw, 88px); text-align: center; }
 .intro .lede { margin: 30px auto 0; }
+.ver {
+  display: inline-flex; align-items: center; gap: 9px; margin-bottom: 30px; padding: 7px 14px 7px 12px;
+  border-radius: 999px; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line);
+  font-size: 14px; color: var(--ink-2); transition: color .2s, box-shadow .2s; animation: up .9s .1s var(--ease) backwards;
+}
+.ver[hidden] { display: none; }
+.ver:hover { color: var(--ink); box-shadow: inset 0 0 0 1px var(--dim); }
+.ver #ver-num { color: var(--ink); font-weight: 500; }
+.ver-date { color: var(--dim); }
+.ver-date:not(:empty)::before { content: ", "; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: var(--grass); box-shadow: 0 0 0 4px var(--tag-bg); }
 
 /* ---------- 2. showcase ---------- */
 .showcase {

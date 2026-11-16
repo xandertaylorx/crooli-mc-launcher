@@ -21,6 +21,12 @@
     </label>
   </header>
 
+  <div id="update-bar" class="update-bar" hidden>
+    <span id="update-text"></span>
+    <button id="update-btn" class="mc-btn small green" type="button"></button>
+    <button id="update-later" class="link quiet" type="button">Later</button>
+  </div>
+
   <main>
     <!-- PLAY -->
     <section id="view-play" class="view active">
@@ -109,6 +115,10 @@
         <label>Java path<input id="s-java" type="text" placeholder="Leave empty to use the Java Minecraft ships with"></label>
         <button class="mc-btn" type="submit">Save settings</button>
       </form>
+      <div class="about">
+        <p>Crooli MC Launcher <b id="s-version"></b><br><span id="s-update" class="sub"></span></p>
+        <button id="btn-check" class="mc-btn small" type="button">Check for updates</button>
+      </div>
       <div class="note">
         <p>You're playing offline. Singleplayer, LAN and offline-mode servers work. Servers that check accounts need a Microsoft login, which isn't available yet.</p>
         <p>Game files are stored in <code id="s-dir"></code></p>

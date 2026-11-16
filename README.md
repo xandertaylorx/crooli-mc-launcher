@@ -39,3 +39,18 @@ Live at https://mclauncher.crooli.com. The page lives in `web/` (plain static HT
 ## License
 
 MIT. Not affiliated with Mojang or Microsoft.
+
+## Updates and releases
+
+The launcher checks GitHub for a newer release on start and every 6 hours (Settings has a "Check for updates" button too).
+On Windows it downloads the update in the background and offers **Restart to update**. On macOS the app isn't signed,
+so it can't replace itself: it shows a banner that downloads the right `.dmg` instead.
+
+To ship a new version:
+
+1. Bump `version` in `package.json` and push to main.
+2. Build the Mac installers: `CSC_IDENTITY_AUTO_DISCOVERY=false npx electron-builder --mac dmg --arm64 --x64 --publish never`
+3. `gh release create vX.Y.Z dist/*.dmg --title "Crooli MC Launcher X.Y.Z" --notes "..."`
+
+Publishing the release starts the **Windows build** workflow, which attaches the `.exe` and the files the updater needs.
+The website reads the latest release by itself, so its version badge and download buttons update on their own.
