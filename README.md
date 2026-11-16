@@ -34,7 +34,7 @@ Set `CROOLI_HOME=/some/dir` to use a different folder.
 
 ## Website
 
-The landing page lives in `web/` (plain static HTML, no build step).
+Live at https://mclauncher.crooli.com. The page lives in `web/` (plain static HTML, no build step) and deploys to Vercel.
 
 ## License
 
