@@ -1,0 +1,74 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Crooli Launcher — a simple Minecraft launcher</title>
+<meta name="description" content="Free, open-source Minecraft launcher for macOS and Windows with one-click Fabric mods from Modrinth.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font:22px/1.3 'VT323','Courier New',monospace;color:#fff;background:#6a4a32;image-rendering:pixelated}
+.dirt{position:fixed;inset:0;z-index:-1;background-size:96px 96px;background-color:#6a6a6a;background-blend-mode:multiply}
+h1,h2{font-weight:400;margin:0;text-shadow:3px 3px #3a3a3a}
+header{background:rgba(0,0,0,.5);border-bottom:2px solid #000;padding:24px 20px;text-align:center}
+.logo{font-size:64px;letter-spacing:3px;line-height:.9}
+.logo span{display:block;font-size:26px;letter-spacing:12px;color:#7ed957;text-shadow:2px 2px #1d4a0e}
+main{max-width:860px;margin:24px auto;padding:0 16px}
+.panel{background:rgba(0,0,0,.62);border:2px solid #000;box-shadow:inset 2px 2px 0 rgba(255,255,255,.12);padding:20px 24px;margin-bottom:20px}
+h2{font-size:34px;margin-bottom:8px}
+p{margin:8px 0;color:#ddd}
+ul{padding-left:22px;margin:8px 0}li{margin:4px 0}
+.btn{display:inline-block;color:#fff;text-decoration:none;text-shadow:2px 2px #3f3f3f;background:#5fa83a;border:2px solid #000;padding:8px 28px;margin:6px 8px 6px 0;font-size:28px;box-shadow:inset 2px 2px 0 #92d667,inset -2px -2px 0 #2c6a14}
+.btn:hover{background:#6fc044}
+.btn.gray{background:#8b8b8b;box-shadow:inset 2px 2px 0 #c6c6c6,inset -2px -2px 0 #565656}.btn.gray:hover{background:#7d8cc4}
+code{background:#000;padding:2px 8px;border:2px solid #444;font-family:'Courier New',monospace;font-size:15px}
+a{color:#7ed957}
+footer{text-align:center;color:#999;font-size:17px;padding:10px 16px 40px}
+</style>
+</head>
+<body>
+<div class="dirt" id="dirt"></div>
+<header>
+  <h1 class="logo">CROOLI<span>LAUNCHER</span></h1>
+  <p>A simple, free, open-source Minecraft launcher for macOS and Windows.</p>
+  <a class="btn" id="dl" href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest">Download</a>
+  <a class="btn gray" href="https://github.com/xandertaylorx/crooli-mc-launcher">Source on GitHub</a>
+</header>
+<main>
+  <div class="panel">
+    <h2>What it does</h2>
+    <ul>
+      <li>Pick any Minecraft version — Vanilla or Fabric.</li>
+      <li>Downloads the game and Java for you. Nothing to install first.</li>
+      <li>Search and install mods from Modrinth in one click, with the mods they need.</li>
+      <li>Separate instances, each with its own worlds, mods and memory setting.</li>
+      <li>Looks like the launcher you remember.</li>
+    </ul>
+  </div>
+  <div class="panel">
+    <h2>Run it from source</h2>
+    <p>Needs <a href="https://nodejs.org">Node.js</a>.</p>
+    <p><code>git clone https://github.com/xandertaylorx/crooli-mc-launcher</code></p>
+    <p><code>cd crooli-mc-launcher &amp;&amp; npm install &amp;&amp; npm start</code></p>
+  </div>
+  <div class="panel">
+    <h2>Good to know</h2>
+    <ul>
+      <li>Accounts are offline-only for now. Microsoft login is not built yet.</li>
+      <li>Forge, NeoForge and modpacks are not supported yet.</li>
+    </ul>
+  </div>
+</main>
+<footer>MIT licensed. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</footer>
+<script>
+// same dirt tile as the launcher, drawn at runtime
+(function(){var c=document.createElement('canvas');c.width=c.height=16;var g=c.getContext('2d'),s=7;
+function r(){return(s=s*16807%2147483647)/2147483647}
+for(var y=0;y<16;y++)for(var x=0;x<16;x++){var v=.55+r()*.35,k=r()>.9?.6:1;
+g.fillStyle='rgb('+Math.round(121*v*k)+','+Math.round(85*v*k)+','+Math.round(58*v*k)+')';g.fillRect(x,y,1,1)}
+document.getElementById('dirt').style.backgroundImage='url('+c.toDataURL()+')'})();
+</script>
+</body>
+</html>

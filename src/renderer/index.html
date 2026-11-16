@@ -1,0 +1,98 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
+  <title>Crooli Launcher</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header>
+    <h1 class="logo">CROOLI<span>LAUNCHER</span></h1>
+    <nav id="tabs">
+      <button class="btn tab active" data-view="play">Play</button>
+      <button class="btn tab" data-view="mods">Mods</button>
+      <button class="btn tab" data-view="instances">Instances</button>
+      <button class="btn tab" data-view="settings">Settings</button>
+    </nav>
+  </header>
+
+  <main>
+    <!-- PLAY -->
+    <section id="view-play" class="view active panel">
+      <h2 id="play-title">Welcome!</h2>
+      <p id="play-sub" class="muted"></p>
+      <div id="log" class="console"></div>
+    </section>
+
+    <!-- MODS -->
+    <section id="view-mods" class="view panel">
+      <h2 id="mods-title">Mods</h2>
+      <p id="mods-note" class="muted"></p>
+      <div class="cols">
+        <div class="col">
+          <form id="mod-search" class="row">
+            <input id="mod-q" type="text" placeholder="Search Modrinth…" autocomplete="off">
+            <button class="btn" type="submit">Search</button>
+          </form>
+          <div id="mod-results" class="list"></div>
+        </div>
+        <div class="col narrow">
+          <h3>Installed</h3>
+          <div id="mod-installed" class="list"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- INSTANCES -->
+    <section id="view-instances" class="view panel">
+      <h2>Instances</h2>
+      <div class="cols">
+        <div class="col">
+          <div id="inst-list" class="list"></div>
+        </div>
+        <div class="col narrow">
+          <h3>New instance</h3>
+          <form id="inst-form" class="form">
+            <label>Name <input id="f-name" type="text" value="My World" maxlength="32"></label>
+            <label>Minecraft version <select id="f-version"></select></label>
+            <label class="check"><input id="f-snap" type="checkbox"> Show snapshots</label>
+            <label>Mod loader
+              <select id="f-loader"><option value="fabric">Fabric (mods)</option><option value="vanilla">Vanilla (no mods)</option></select>
+            </label>
+            <label>Memory (MB) <input id="f-ram" type="number" min="1024" max="32768" step="512" value="4096"></label>
+            <button class="btn green" type="submit">Create</button>
+          </form>
+        </div>
+      </div>
+    </section>
+
+    <!-- SETTINGS -->
+    <section id="view-settings" class="view panel">
+      <h2>Settings</h2>
+      <form id="settings-form" class="form wide">
+        <label>Player name <input id="s-name" type="text" maxlength="16"></label>
+        <label>Custom Java path (optional — leave empty to use the one Minecraft ships with)
+          <input id="s-java" type="text" placeholder="/path/to/java"></label>
+        <button class="btn" type="submit">Save</button>
+      </form>
+      <p class="muted">Account mode: <b>Offline</b>. You can play singleplayer and cracked/LAN servers. Servers with online-mode on need a Microsoft login (not built yet).</p>
+      <p class="muted">Data folder: <code id="s-dir"></code></p>
+    </section>
+  </main>
+
+  <div id="toast"></div>
+
+  <footer>
+    <select id="sel-inst" title="Instance"></select>
+    <input id="in-name" type="text" maxlength="16" title="Player name">
+    <div class="spacer">
+      <div id="progress" class="hidden"><div id="bar"></div><span id="bar-label"></span></div>
+    </div>
+    <button id="btn-folder" class="btn small" title="Open instance folder">Folder</button>
+    <button id="btn-play" class="btn green big">PLAY</button>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
