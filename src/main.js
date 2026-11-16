@@ -18,8 +18,8 @@ const getInst = id => store.load().instances.find(i => i.id === id);
 
 function createWindow() {
   win = new BrowserWindow({
-    width: 980, height: 640, minWidth: 820, minHeight: 560,
-    backgroundColor: '#2b1d12', title: 'Crooli Launcher', autoHideMenuBar: true,
+    width: 1080, height: 720, minWidth: 900, minHeight: 620,
+    backgroundColor: '#33363c', title: 'Crooli Launcher', autoHideMenuBar: true,
     webPreferences: { preload: path.join(__dirname, 'preload.js'), contextIsolation: true, nodeIntegration: false },
   });
   win.loadFile(path.join(__dirname, 'renderer', 'index.html'));
@@ -39,6 +39,17 @@ ipcMain.handle('init', async () => {
   try { versions = await V.listVersions(); } catch (e) { send('toast', 'Could not reach Mojang: ' + e.message); }
   try { fabric = [...await V.listFabricGameVersions()]; } catch {}
   return { settings: store.load(), versions: versions.map(v => ({ id: v.id, type: v.type })), fabric, dataDir: core.root() };
+});
+
+// Mojang's public Java Edition patch notes (what the official launcher shows)
+ipcMain.handle('news', async () => {
+  try {
+    const d = await core.getJson('https://launchercontent.mojang.com/v2/javaPatchNotes.json');
+    return d.entries.slice(0, 4).map(e => ({
+      title: e.title, type: e.type, date: e.date, text: e.shortText,
+      image: e.image && e.image.url ? 'https://launchercontent.mojang.com' + e.image.url : null,
+    }));
+  } catch { return []; }
 });
 
 ipcMain.handle('settings:save', (_e, patch) => { const s = { ...store.load(), ...patch }; store.save(s); return s; });

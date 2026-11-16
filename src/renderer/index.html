@@ -1,98 +1,122 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
   <meta charset="utf-8">
   <meta http-equiv="Content-Security-Policy" content="default-src 'self'; img-src 'self' https: data:; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'self'">
-  <title>Crooli Launcher</title>
+  <title>Crooli</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header>
-    <h1 class="logo">CROOLI<span>LAUNCHER</span></h1>
+  <header class="topbar">
+    <div class="brand"><span class="block-icon" aria-hidden="true"></span>Crooli</div>
     <nav id="tabs">
-      <button class="btn tab active" data-view="play">Play</button>
-      <button class="btn tab" data-view="mods">Mods</button>
-      <button class="btn tab" data-view="instances">Instances</button>
-      <button class="btn tab" data-view="settings">Settings</button>
+      <button class="tab active" data-view="play">Play</button>
+      <button class="tab" data-view="mods">Mods</button>
+      <button class="tab" data-view="instances">Installations</button>
+      <button class="tab" data-view="settings">Settings</button>
     </nav>
+    <label class="player" title="Change your player name">
+      <canvas id="face" width="8" height="8"></canvas>
+      <input id="in-name" type="text" maxlength="16" spellcheck="false" aria-label="Player name">
+    </label>
   </header>
 
   <main>
     <!-- PLAY -->
-    <section id="view-play" class="view active panel">
-      <h2 id="play-title">Welcome!</h2>
-      <p id="play-sub" class="muted"></p>
-      <div id="log" class="console"></div>
+    <section id="view-play" class="view active">
+      <div class="scene">
+        <canvas id="sky"></canvas>
+        <div class="scene-text">
+          <h1 id="play-title">Welcome</h1>
+          <p id="play-sub"></p>
+        </div>
+        <div id="log-drawer" class="drawer" hidden>
+          <div class="drawer-head"><span>Game output</span><button id="btn-log-close" class="link">Close</button></div>
+          <div id="log" class="console"></div>
+        </div>
+      </div>
+      <div class="ground">
+        <div class="ground-side">
+          <select id="sel-inst" aria-label="Installation"></select>
+        </div>
+        <button id="btn-play" class="mc-btn play"><span class="l1">Play</span><span class="l2" id="play-l2"></span></button>
+        <div class="ground-side right">
+          <button id="btn-folder" class="mc-btn small">Open folder</button>
+          <button id="btn-log" class="mc-btn small">Game output</button>
+        </div>
+        <div id="progress" hidden><div id="bar"></div><span id="bar-label"></span></div>
+      </div>
+      <div class="news">
+        <h2>New in Minecraft</h2>
+        <div id="news-list" class="news-list"></div>
+      </div>
     </section>
 
     <!-- MODS -->
-    <section id="view-mods" class="view panel">
-      <h2 id="mods-title">Mods</h2>
-      <p id="mods-note" class="muted"></p>
-      <div class="cols">
-        <div class="col">
-          <form id="mod-search" class="row">
-            <input id="mod-q" type="text" placeholder="Search Modrinth…" autocomplete="off">
-            <button class="btn" type="submit">Search</button>
+    <section id="view-mods" class="view page">
+      <div class="page-head">
+        <h1 id="mods-title">Mods</h1>
+        <p id="mods-note" class="sub"></p>
+      </div>
+      <div class="split">
+        <div class="pane">
+          <form id="mod-search" class="search">
+            <input id="mod-q" type="search" placeholder="Search Modrinth for mods" autocomplete="off">
+            <button class="mc-btn small" type="submit">Search</button>
           </form>
-          <div id="mod-results" class="list"></div>
+          <div id="mod-results" class="rows"></div>
         </div>
-        <div class="col narrow">
-          <h3>Installed</h3>
-          <div id="mod-installed" class="list"></div>
+        <div class="pane side">
+          <h2>Installed</h2>
+          <div id="mod-installed" class="rows compact"></div>
         </div>
       </div>
     </section>
 
-    <!-- INSTANCES -->
-    <section id="view-instances" class="view panel">
-      <h2>Instances</h2>
-      <div class="cols">
-        <div class="col">
-          <div id="inst-list" class="list"></div>
+    <!-- INSTALLATIONS -->
+    <section id="view-instances" class="view page">
+      <div class="page-head">
+        <h1>Installations</h1>
+        <p class="sub">Each installation keeps its own worlds, mods and settings.</p>
+      </div>
+      <div class="split">
+        <div class="pane">
+          <div id="inst-list" class="rows"></div>
         </div>
-        <div class="col narrow">
-          <h3>New instance</h3>
+        <div class="pane side">
+          <h2>New installation</h2>
           <form id="inst-form" class="form">
-            <label>Name <input id="f-name" type="text" value="My World" maxlength="32"></label>
-            <label>Minecraft version <select id="f-version"></select></label>
-            <label class="check"><input id="f-snap" type="checkbox"> Show snapshots</label>
-            <label>Mod loader
-              <select id="f-loader"><option value="fabric">Fabric (mods)</option><option value="vanilla">Vanilla (no mods)</option></select>
+            <label>Name<input id="f-name" type="text" value="My World" maxlength="32"></label>
+            <label>Version<select id="f-version"></select></label>
+            <label class="check"><input id="f-snap" type="checkbox">Include snapshots</label>
+            <label>Mods
+              <select id="f-loader"><option value="fabric">Fabric, mods allowed</option><option value="vanilla">Vanilla, no mods</option></select>
             </label>
-            <label>Memory (MB) <input id="f-ram" type="number" min="1024" max="32768" step="512" value="4096"></label>
-            <button class="btn green" type="submit">Create</button>
+            <label>Memory
+              <select id="f-ram"><option value="2048">2 GB</option><option value="4096" selected>4 GB</option><option value="6144">6 GB</option><option value="8192">8 GB</option></select>
+            </label>
+            <button class="mc-btn green" type="submit">Create installation</button>
           </form>
         </div>
       </div>
     </section>
 
     <!-- SETTINGS -->
-    <section id="view-settings" class="view panel">
-      <h2>Settings</h2>
-      <form id="settings-form" class="form wide">
-        <label>Player name <input id="s-name" type="text" maxlength="16"></label>
-        <label>Custom Java path (optional — leave empty to use the one Minecraft ships with)
-          <input id="s-java" type="text" placeholder="/path/to/java"></label>
-        <button class="btn" type="submit">Save</button>
+    <section id="view-settings" class="view page">
+      <div class="page-head"><h1>Settings</h1></div>
+      <form id="settings-form" class="form narrow">
+        <label>Player name<input id="s-name" type="text" maxlength="16"></label>
+        <label>Java path<input id="s-java" type="text" placeholder="Leave empty to use the Java Minecraft ships with"></label>
+        <button class="mc-btn" type="submit">Save settings</button>
       </form>
-      <p class="muted">Account mode: <b>Offline</b>. You can play singleplayer and cracked/LAN servers. Servers with online-mode on need a Microsoft login (not built yet).</p>
-      <p class="muted">Data folder: <code id="s-dir"></code></p>
+      <div class="note">
+        <p>You're playing offline. Singleplayer, LAN and offline-mode servers work. Servers that check accounts need a Microsoft login, which isn't available yet.</p>
+        <p>Game files are stored in <code id="s-dir"></code></p>
+      </div>
     </section>
   </main>
 
-  <div id="toast"></div>
-
-  <footer>
-    <select id="sel-inst" title="Instance"></select>
-    <input id="in-name" type="text" maxlength="16" title="Player name">
-    <div class="spacer">
-      <div id="progress" class="hidden"><div id="bar"></div><span id="bar-label"></span></div>
-    </div>
-    <button id="btn-folder" class="btn small" title="Open instance folder">Folder</button>
-    <button id="btn-play" class="btn green big">PLAY</button>
-  </footer>
-
+  <div id="toast" role="status"></div>
   <script src="app.js"></script>
 </body>
 </html>

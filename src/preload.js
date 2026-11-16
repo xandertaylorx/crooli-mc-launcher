@@ -2,6 +2,7 @@ const { contextBridge, ipcRenderer } = require('electron');
 const call = ch => (...a) => ipcRenderer.invoke(ch, ...a);
 contextBridge.exposeInMainWorld('api', {
   init: call('init'),
+  news: call('news'),
   saveSettings: call('settings:save'),
   saveInstance: call('instance:save'),
   deleteInstance: call('instance:delete'),

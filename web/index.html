@@ -1,74 +1,159 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="light">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Crooli Launcher — a simple Minecraft launcher</title>
-<meta name="description" content="Free, open-source Minecraft launcher for macOS and Windows with one-click Fabric mods from Modrinth.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=VT323&display=swap" rel="stylesheet">
-<style>
-*{box-sizing:border-box}
-body{margin:0;font:22px/1.3 'VT323','Courier New',monospace;color:#fff;background:#6a4a32;image-rendering:pixelated}
-.dirt{position:fixed;inset:0;z-index:-1;background-size:96px 96px;background-color:#6a6a6a;background-blend-mode:multiply}
-h1,h2{font-weight:400;margin:0;text-shadow:3px 3px #3a3a3a}
-header{background:rgba(0,0,0,.5);border-bottom:2px solid #000;padding:24px 20px;text-align:center}
-.logo{font-size:64px;letter-spacing:3px;line-height:.9}
-.logo span{display:block;font-size:26px;letter-spacing:12px;color:#7ed957;text-shadow:2px 2px #1d4a0e}
-main{max-width:860px;margin:24px auto;padding:0 16px}
-.panel{background:rgba(0,0,0,.62);border:2px solid #000;box-shadow:inset 2px 2px 0 rgba(255,255,255,.12);padding:20px 24px;margin-bottom:20px}
-h2{font-size:34px;margin-bottom:8px}
-p{margin:8px 0;color:#ddd}
-ul{padding-left:22px;margin:8px 0}li{margin:4px 0}
-.btn{display:inline-block;color:#fff;text-decoration:none;text-shadow:2px 2px #3f3f3f;background:#5fa83a;border:2px solid #000;padding:8px 28px;margin:6px 8px 6px 0;font-size:28px;box-shadow:inset 2px 2px 0 #92d667,inset -2px -2px 0 #2c6a14}
-.btn:hover{background:#6fc044}
-.btn.gray{background:#8b8b8b;box-shadow:inset 2px 2px 0 #c6c6c6,inset -2px -2px 0 #565656}.btn.gray:hover{background:#7d8cc4}
-code{background:#000;padding:2px 8px;border:2px solid #444;font-family:'Courier New',monospace;font-size:15px}
-a{color:#7ed957}
-footer{text-align:center;color:#999;font-size:17px;padding:10px 16px 40px}
-</style>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Crooli Launcher: Minecraft with mods, minus the fuss</title>
+<meta name="description" content="A small Minecraft launcher for Mac and Windows. It downloads the game and Java for you and installs Fabric mods from Modrinth with everything they need. Free and open source." />
+<meta name="theme-color" content="#f5f5f3" />
+<script>try{if(localStorage.getItem("crooli-launcher.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
+<link rel="icon" href="assets/icon.svg" type="image/svg+xml" />
+<meta property="og:title" content="Crooli Launcher" />
+<meta property="og:description" content="Minecraft with mods, minus the fuss. Free for Mac and Windows." />
+<meta property="og:image" content="assets/play-day.png" />
+<meta property="og:type" content="website" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="styles.css" />
 </head>
 <body>
-<div class="dirt" id="dirt"></div>
-<header>
-  <h1 class="logo">CROOLI<span>LAUNCHER</span></h1>
-  <p>A simple, free, open-source Minecraft launcher for macOS and Windows.</p>
-  <a class="btn" id="dl" href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest">Download</a>
-  <a class="btn gray" href="https://github.com/xandertaylorx/crooli-mc-launcher">Source on GitHub</a>
+
+<!-- Pixel grass block: the launcher's own logo -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="block" viewBox="0 0 8 8"><path style="fill:var(--mark-dirt)" d="M0 3h8v5h-8z"/><path style="fill:var(--mark-grass)" d="M0 0h8v3h-8zM1 3h1v1h-1zM4 3h1v2h-1zM6 3h1v1h-1z"/><path style="fill:var(--mark-shade)" d="M2 5h1v1h-1zM6 6h1v1h-1zM3 7h1v1h-1z"/></symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="#top" aria-label="Crooli Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span class="product">Launcher</span></a>
+  <nav class="pillnav" aria-label="Main">
+    <a href="#how">How it works</a>
+    <a href="#download">Download</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher" rel="noopener">GitHub<span id="stars"></span></a>
+    <button class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+  </nav>
 </header>
-<main>
-  <div class="panel">
-    <h2>What it does</h2>
-    <ul>
-      <li>Pick any Minecraft version — Vanilla or Fabric.</li>
-      <li>Downloads the game and Java for you. Nothing to install first.</li>
-      <li>Search and install mods from Modrinth in one click, with the mods they need.</li>
-      <li>Separate instances, each with its own worlds, mods and memory setting.</li>
-      <li>Looks like the launcher you remember.</li>
+
+<main id="top">
+
+  <!-- 1. Centred intro -->
+  <section class="intro">
+    <h1 class="display">Minecraft with mods,<br /><span class="dim">minus the fuss.</span></h1>
+    <p class="lede">A small launcher for Mac and Windows. Pick a version and press Play: it downloads the game and Java for you, and installs Fabric mods from Modrinth along with everything they need.</p>
+    <div class="cta">
+      <a class="btn dark" id="hero-dl" href="#download">Download</a>
+      <a class="ulink" href="https://github.com/xandertaylorx/crooli-mc-launcher">View the source</a>
+    </div>
+  </section>
+
+  <!-- 2. The launcher, wide, on grass-green glass -->
+  <section class="showcase panel">
+    <canvas class="shader" data-mode="fluted" data-palette="grass" aria-hidden="true"></canvas>
+    <figure class="shot">
+      <img src="assets/play-day.png" width="2160" height="1384" alt="The Crooli Play screen: a pixel landscape under a blue sky, the installation Survival World, and a green Play button on a strip of dirt" />
+    </figure>
+  </section>
+
+  <dl class="facts">
+    <div><dt>26.3 → 1.0</dt><dd>Every release, snapshots too</dd></div>
+    <div><dt>fabric</dt><dd>Mod loader, built in</dd></div>
+    <div><dt>modrinth</dt><dd>Mods in one click</dd></div>
+    <div><dt>java</dt><dd>Downloaded for you</dd></div>
+  </dl>
+
+  <!-- 3. How it works: a real sequence, top to bottom -->
+  <section id="how" class="how">
+    <h2 class="h2 center">Three steps to a modded world.</h2>
+
+    <article class="step">
+      <div class="step-text">
+        <span class="num">1</span>
+        <h3>Make an installation</h3>
+        <p>Name it, pick a Minecraft version and choose Fabric if you want mods. Each installation keeps its own worlds, mods and memory, so a modded survival world never touches a quick vanilla one.</p>
+      </div>
+      <div class="step-art panel">
+        <canvas class="shader" data-mode="silk" data-palette="sky" aria-hidden="true"></canvas>
+        <figure class="shot">
+          <img src="assets/installations.png" width="2160" height="1384" loading="lazy" alt="The Installations screen: Survival World on Fabric and Vanilla Test, beside a form for a new installation" />
+        </figure>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="step-text">
+        <span class="num">2</span>
+        <h3>Add mods</h3>
+        <p>Search Modrinth from inside the launcher. Results only show mods that run on your version, and anything a mod needs, like Fabric API, is installed with it. Turn mods off without deleting them.</p>
+      </div>
+      <div class="step-art panel">
+        <canvas class="shader" data-mode="silk" data-palette="dirt" aria-hidden="true"></canvas>
+        <figure class="shot">
+          <img src="assets/mods.png" width="2160" height="1384" loading="lazy" alt="The Mods screen: Modrinth search results with Install buttons, and six installed mods" />
+        </figure>
+      </div>
+    </article>
+
+    <article class="step">
+      <div class="step-text">
+        <span class="num">3</span>
+        <h3>Press Play</h3>
+        <p>The first launch downloads the game, its assets and the right Java. After that it starts straight away. The Play screen's sky follows your clock: blue at lunch, orange at dusk, stars after nine.</p>
+        <div class="seg" role="group" aria-label="Time of day">
+          <button type="button" data-time="day" aria-pressed="true">Day</button>
+          <button type="button" data-time="dusk" aria-pressed="false">Dusk</button>
+          <button type="button" data-time="night" aria-pressed="false">Night</button>
+        </div>
+      </div>
+      <div class="step-art panel">
+        <canvas class="shader" data-mode="fluted" data-palette="night" aria-hidden="true"></canvas>
+        <figure class="shot sky-shot">
+          <img src="assets/play-day.png" data-day="assets/play-day.png" data-dusk="assets/play-dusk.png" data-night="assets/play-night.png" width="2160" height="1384" loading="lazy" alt="The Play screen at different times of day" />
+        </figure>
+      </div>
+    </article>
+  </section>
+
+  <!-- 4. What comes with it -->
+  <section class="included">
+    <h2 class="h2 center">Nothing else to install.</h2>
+    <p class="lede center">Crooli fetches all of this itself and checks every file it downloads.</p>
+    <ul class="chips">
+      <li>Minecraft</li><li>Libraries</li><li>Assets</li><li>Java runtime</li><li>Fabric loader</li><li>Log4j fix</li><li>Mod dependencies</li>
     </ul>
-  </div>
-  <div class="panel">
-    <h2>Run it from source</h2>
-    <p>Needs <a href="https://nodejs.org">Node.js</a>.</p>
-    <p><code>git clone https://github.com/xandertaylorx/crooli-mc-launcher</code></p>
-    <p><code>cd crooli-mc-launcher &amp;&amp; npm install &amp;&amp; npm start</code></p>
-  </div>
-  <div class="panel">
-    <h2>Good to know</h2>
-    <ul>
-      <li>Accounts are offline-only for now. Microsoft login is not built yet.</li>
-      <li>Forge, NeoForge and modpacks are not supported yet.</li>
+    <ul class="extras">
+      <li><b>Game output</b><span>A side panel shows what the game is doing, in plain lines.</span></li>
+      <li><b>Update notes</b><span>Mojang’s latest snapshot and release posts, on the Play screen.</span></li>
+      <li><b>Your files</b><span>Every installation is a normal folder you can open and back up.</span></li>
     </ul>
-  </div>
+  </section>
+
+  <!-- 5. Download -->
+  <section id="download" class="get">
+    <h2 class="display center">Get Crooli.</h2>
+    <p class="lede center"><b>Free and MIT licensed.</b> For playing with mods without learning how mod loaders work.</p>
+    <div class="cta">
+      <a class="btn dark" id="dl-main" href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest">Download <small id="dl-size"></small></a>
+      <a class="ulink" id="other-dl" href="https://github.com/xandertaylorx/crooli-mc-launcher/releases">All downloads</a>
+    </div>
+    <div class="cmdline">
+      <span class="tag">Source</span>
+      <code id="cmd-src">git clone https://github.com/xandertaylorx/crooli-mc-launcher &amp;&amp; cd crooli-mc-launcher &amp;&amp; npm install &amp;&amp; npm start</code>
+      <button class="copy" type="button" data-copy="#cmd-src"><span class="lbl">Copy</span></button>
+    </div>
+    <p class="fine" id="platform-note">Needs <a href="https://nodejs.org">Node.js</a> to run from source.</p>
+  </section>
 </main>
-<footer>MIT licensed. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</footer>
-<script>
-// same dirt tile as the launcher, drawn at runtime
-(function(){var c=document.createElement('canvas');c.width=c.height=16;var g=c.getContext('2d'),s=7;
-function r(){return(s=s*16807%2147483647)/2147483647}
-for(var y=0;y<16;y++)for(var x=0;x<16;x++){var v=.55+r()*.35,k=r()>.9?.6:1;
-g.fillStyle='rgb('+Math.round(121*v*k)+','+Math.round(85*v*k)+','+Math.round(58*v*k)+')';g.fillRect(x,y,1,1)}
-document.getElementById('dirt').style.backgroundImage='url('+c.toDataURL()+')'})();
-</script>
+
+<footer class="foot">
+  <span>Crooli Launcher. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
+  <nav aria-label="Links">
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher/releases">Releases</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
+  </nav>
+</footer>
+
+<script src="site.js"></script>
+<script src="app.js"></script>
 </body>
 </html>
