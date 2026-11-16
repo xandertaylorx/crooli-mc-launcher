@@ -32,5 +32,8 @@ contextBridge.exposeInMainWorld('api', {
   saveSkin: call('skin:save'),
   clearSkin: call('skin:clear'),
   lookupSkin: call('skin:lookup'),
+  scanImports: call('import:scan'),
+  scanImportFolder: call('import:folder'),
+  runImport: call('import:run'),
   on: (ch, fn) => ipcRenderer.on(ch, (_e, p) => fn(p)),
 });

@@ -220,6 +220,7 @@ function fillVersions() {
   updateLoaderOption();
 }
 function updateLoaderOption() {
+  if ($('#f-version').value === '__import__') return; // that entry opens the import window instead
   const ok = fabricSet.has($('#f-version').value);
   const opt = $('#f-loader').querySelector('[value=fabric]');
   opt.disabled = !ok; opt.textContent = ok ? 'Fabric, mods allowed' : 'Fabric (not out for this version)';

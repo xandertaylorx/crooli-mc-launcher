@@ -227,3 +227,31 @@ code { font: 13px ui-monospace, Menlo, Consolas, monospace; color: var(--text); 
 .skin-pane input[type=file] { font: 14px var(--body); color: var(--text); }
 .skin-pane select { font: 15px var(--body); }
 .skin-controls .hint { margin: 0; color: var(--muted); font-size: 13.5px; }
+
+/* ---------- import from other launchers ---------- */
+.find-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 0 2px 12px; color: var(--muted); font-size: 14px; flex-wrap: wrap; }
+dialog.sheet { width: min(760px, calc(100vw - 48px)); max-height: calc(100vh - 64px); padding: 24px 26px; color: var(--text); background: var(--slate); border: 2px solid var(--edge); border-radius: 8px; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+dialog.sheet[open] { display: flex; flex-direction: column; gap: 12px; }
+dialog.sheet::backdrop { background: rgba(10, 11, 14, .66); }
+.sheet-head { display: flex; align-items: center; justify-content: space-between; }
+.sheet-head h2 { font: 700 26px/1.1 var(--pixel); }
+.sheet .sub { margin: 0; font-size: 14px; }
+.sheet .rows { max-height: 52vh; }
+.sheet-foot { display: flex; align-items: center; gap: 14px; }
+.found { padding: 12px 8px; border-bottom: 1px solid var(--line); }
+.found-top { display: flex; align-items: center; gap: 14px; }
+.found-top .info { flex: 1; min-width: 0; }
+.found .t { font-weight: 700; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.found .d { color: var(--muted); font-size: 13.5px; }
+.found .note { margin-top: 6px; color: #f0d58a; font-size: 13.5px; }
+.found.unsupported .t { color: #c7cad1; }
+.tag.src { background: var(--slate-down); }
+.found-options { margin-top: 12px; padding: 14px; border-radius: 6px; background: var(--slate-down); display: grid; gap: 12px; }
+.found-options[hidden] { display: none; }
+.found-options .checks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px 16px; }
+.found-options label { display: flex; align-items: center; gap: 8px; font-size: 14px; }
+.found-options label.off { color: var(--muted); }
+.found-options .row2 { display: flex; gap: 12px; flex-wrap: wrap; align-items: flex-end; }
+.found-options .row2 label { flex-direction: column; align-items: flex-start; gap: 5px; font-weight: 700; flex: 1; min-width: 180px; }
+.found-options .row2 input, .found-options .row2 select { width: 100%; }
+.found-options .go { display: flex; align-items: center; gap: 14px; }

@@ -101,6 +101,10 @@
       </div>
       <div class="split">
         <div class="pane">
+          <div class="find-bar">
+            <span>Played Minecraft somewhere else?</span>
+            <button id="btn-find" class="mc-btn small" type="button">Find installs from other launchers</button>
+          </div>
           <div id="inst-list" class="rows"></div>
         </div>
         <div class="pane side">
@@ -251,8 +255,19 @@
     </section>
   </main>
 
+  <dialog id="import-dialog" class="sheet" aria-labelledby="import-title">
+    <div class="sheet-head"><h2 id="import-title">Installs from other launchers</h2><button id="import-close" class="link" type="button">Close</button></div>
+    <p class="sub">Looks in the usual folders for the Minecraft Launcher, Prism, MultiMC, CurseForge, Modrinth App and others. It only reads folder names, versions and logs, and copies what you pick into a new installation. The originals aren’t touched.</p>
+    <div id="import-list" class="rows"></div>
+    <div class="sheet-foot">
+      <button id="import-folder" class="mc-btn small" type="button">Look in another folder</button>
+      <span id="import-status" class="sub"></span>
+    </div>
+  </dialog>
+
   <div id="toast" role="status"></div>
   <script src="app.js"></script>
   <script src="skin-ui.js"></script>
+  <script src="import-ui.js"></script>
 </body>
 </html>

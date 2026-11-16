@@ -12,6 +12,7 @@ const L = require('./core/launch');
 const mods = require('./core/modrinth');
 const packs = require('./core/packs');
 const skin = require('./core/skin');
+const importer = require('./core/importer');
 const { createUpdater } = require('./core/updater');
 const servers = require('./core/servers');
 
@@ -235,3 +236,45 @@ ipcMain.handle('skin:load', () => skin.load());
 ipcMain.handle('skin:save', (_e, s) => { try { skin.save(s); return { ok: true }; } catch (e) { return { error: e.message }; } });
 ipcMain.handle('skin:clear', () => { skin.clear(); return { ok: true }; });
 ipcMain.handle('skin:lookup', async (_e, name) => { try { return await skin.lookup(String(name).trim()); } catch (e) { return { error: e.message }; } });
+
+// ---- importing installs from other launchers ----
+const found = new Map(); // id -> what the scan found, so the renderer only ever names an install it was shown
+const present = (c) => ({ ...c, dir: c.dir });
+function scanFor(extra) {
+  const list = importer.scan(extra);
+  found.clear();
+  list.forEach((c) => found.set(c.id, c));
+  return list.map(present);
+}
+ipcMain.handle('import:scan', () => scanFor([]));
+ipcMain.handle('import:folder', async () => {
+  const r = await dialog.showOpenDialog(win, { title: 'Choose a folder to look in', properties: ['openDirectory'] });
+  return r.canceled ? { canceled: true } : { list: scanFor(r.filePaths) };
+});
+ipcMain.handle('import:run', async (_e, { id, name, mc, parts }) => {
+  const cand = found.get(id);
+  if (!cand) return { error: 'That install isn’t in the list any more. Look again and try once more.' };
+  const version = String(mc || cand.mc || '');
+  if (!version) return { error: 'Pick the Minecraft version this install uses.' };
+  let entries = [];
+  try { entries = await L.manifest(); } catch { return { error: 'Couldn’t reach Mojang to check the version. Check your connection.' }; }
+  if (!entries.some((v) => v.id === version)) return { error: `Minecraft ${version} isn’t available to download from Mojang, so it can’t be imported.` };
+  let loader = cand.loader === 'fabric' ? 'fabric' : 'vanilla';
+  if (loader === 'fabric') {
+    try { if (!(await V.listFabricGameVersions()).has(version)) loader = 'vanilla'; } catch { loader = 'vanilla'; }
+  }
+  const s = store.load();
+  const instName = String(name || cand.name).slice(0, 32) || 'Imported';
+  const id2 = (instName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'imported') + '-' + Date.now().toString(36);
+  const dest = instDir(id2);
+  try {
+    const copied = await importer.copyInto(cand, dest, parts || {}, loader, (label) => send('import:progress', label));
+    s.instances.push({ id: id2, name: instName, mc: version, loader, ram: 4096 });
+    s.selected = id2;
+    store.save(s);
+    return { settings: s, copied, loader, downgraded: cand.loader === 'fabric' && loader !== 'fabric' };
+  } catch (e) {
+    fs.rmSync(dest, { recursive: true, force: true }); // never leave a half-copied installation behind
+    return { error: `Couldn’t finish copying: ${e.message}` };
+  }
+});
