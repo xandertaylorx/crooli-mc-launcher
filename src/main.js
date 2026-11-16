@@ -47,6 +47,8 @@ app.whenReady().then(() => {
   app.on('activate', () => BrowserWindow.getAllWindows().length === 0 && createWindow());
 });
 app.on('window-all-closed', () => app.quit());
+// The launcher is really closing: if an update was downloaded, put it in place now.
+app.on('will-quit', () => { try { updater.onQuit(); } catch {} });
 
 // Running servers get a proper "stop" (which saves the world) before the app closes.
 let stoppingServers = false;

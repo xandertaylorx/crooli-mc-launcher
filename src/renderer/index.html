@@ -209,7 +209,10 @@
         <h2 id="skin-title">Skin</h2>
         <p class="sub" id="skin-status"></p>
         <div class="skin-body">
-          <canvas id="skin-view" width="288" height="256" aria-label="Skin preview, front and back"></canvas>
+          <div class="skin-viewer">
+            <div id="skin-stage" role="img" aria-label="3D preview of the skin. Drag to turn it." tabindex="0"><div id="skin-shadow"></div><div id="skin-fig"></div></div>
+            <p class="hint">Drag to turn it. Double-click to face front.</p>
+          </div>
           <div class="skin-controls">
             <div class="subtabs" id="skin-tabs" role="tablist">
               <button class="subtab active" data-skin="build" type="button" role="tab">Build one</button>

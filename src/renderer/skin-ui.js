@@ -10,31 +10,34 @@
   const shade = (hex, pct) => `rgb(${rgb(hex).map((v) => Math.max(0, Math.min(255, Math.round(v * (1 + pct))))).join(',')})`;
 
   // Fills an unfolded box the way Minecraft lays skins out: top, bottom, then right, front, left, back.
+  // `color` is one colour, or a function of the row (0 = top) so a sleeve or a boot can change colour part-way down
+  // while every face still gets the same light and shade.
+  const FACE_LIGHT = [0.12, -0.22, -0.08, 0, -0.08, -0.12]; // top, bottom, right, front, left, back
   function box(g, x, y, w, h, d, color) {
-    const faces = [[x + d, y, w, d, 0.12], [x + d + w, y, w, d, -0.22], [x, y + d, d, h, -0.08], [x + d, y + d, w, h, 0], [x + d + w, y + d, d, h, -0.08], [x + d + w + d, y + d, w, h, -0.12]];
-    for (const [fx, fy, fw, fh, s] of faces) { g.fillStyle = shade(color, s); g.fillRect(fx, fy, fw, fh); }
+    const at = typeof color === 'function' ? color : () => color;
+    const faces = [[x + d, y, w, d], [x + d + w, y, w, d], [x, y + d, d, h], [x + d, y + d, w, h], [x + d + w, y + d, d, h], [x + d + w + d, y + d, w, h]];
+    faces.forEach(([fx, fy, fw, fh], i) => {
+      const tall = i >= 2; // the four sides have rows from the top of the part down; top and bottom are flat
+      for (let r = 0; r < fh; r++) { g.fillStyle = shade(at(tall ? r : (i === 1 ? h : 0)), FACE_LIGHT[i]); g.fillRect(fx, fy + r, fw, 1); }
+    });
   }
 
   // A little character from six colours: head, hair, face, shirt, trousers and shoes.
   function generate(c) {
     const cv = mk(), g = ctxOf(cv);
-    box(g, 0, 0, 8, 8, 8, c.tone);
-    g.fillStyle = shade(c.hair, 0.1); g.fillRect(8, 0, 8, 8);            // top of the head
-    g.fillStyle = c.hair; g.fillRect(0, 8, 8, 3); g.fillRect(16, 8, 8, 3); g.fillRect(24, 8, 8, 6); // sides and back
-    g.fillRect(8, 8, 8, 2); g.fillRect(8, 10, 1, 1); g.fillRect(15, 10, 1, 1); // fringe
-    g.fillStyle = shade(c.hair, -0.25); g.fillRect(9, 11, 2, 1); g.fillRect(13, 11, 2, 1); // brows
-    g.fillStyle = '#f4f4f4'; g.fillRect(9, 12, 1, 1); g.fillRect(14, 12, 1, 1);          // eyes
+    // head: hair on top, round the sides and down the back; skin below
+    box(g, 0, 0, 8, 8, 8, (r) => c.tone);
+    const hairFace = (fx, fy, rows) => { for (let r = 0; r < rows; r++) { g.fillStyle = shade(c.hair, FACE_LIGHT[fx === 24 ? 5 : fx === 16 ? 4 : fx === 0 ? 2 : 3]); g.fillRect(fx, fy + r, 8, 1); } };
+    g.fillStyle = shade(c.hair, 0.1); g.fillRect(8, 0, 8, 8);                    // top of the head
+    hairFace(0, 8, 4); hairFace(16, 8, 4); hairFace(24, 8, 7);                   // sides and back
+    hairFace(8, 8, 2); g.fillStyle = c.hair; g.fillRect(8, 10, 1, 1); g.fillRect(15, 10, 1, 1); // fringe
+    g.fillStyle = shade(c.hair, -0.25); g.fillRect(9, 11, 2, 1); g.fillRect(13, 11, 2, 1);      // brows
+    g.fillStyle = '#f4f4f4'; g.fillRect(9, 12, 1, 1); g.fillRect(14, 12, 1, 1);                 // eyes
     g.fillStyle = c.eyes; g.fillRect(10, 12, 1, 1); g.fillRect(13, 12, 1, 1);
-    g.fillStyle = shade(c.tone, -0.25); g.fillRect(11, 14, 2, 1);                         // mouth
-    box(g, 16, 16, 8, 12, 4, c.shirt);                                                    // body
-    for (const [ax, ay] of [[40, 16], [32, 48]]) {                                        // arms: short sleeves
-      box(g, ax, ay, 4, 12, 4, c.tone);
-      g.fillStyle = c.shirt; g.fillRect(ax, ay + 4, 16, 4); g.fillRect(ax + 4, ay, 4, 4);
-    }
-    for (const [lx, ly] of [[0, 16], [16, 48]]) {                                         // legs and shoes
-      box(g, lx, ly, 4, 12, 4, c.pants);
-      g.fillStyle = c.shoes; g.fillRect(lx, ly + 13, 16, 3); g.fillRect(lx + 8, ly + 12, 4, 1);
-    }
+    g.fillStyle = shade(c.tone, -0.25); g.fillRect(11, 14, 2, 1);                               // mouth
+    box(g, 16, 16, 8, 12, 4, c.shirt);                                                          // body
+    for (const [ax, ay] of [[40, 16], [32, 48]]) box(g, ax, ay, 4, 12, 4, (r) => (r < 4 ? c.shirt : c.tone)); // arms, short sleeves
+    for (const [lx, ly] of [[0, 16], [16, 48]]) box(g, lx, ly, 4, 12, 4, (r) => (r >= 9 ? c.shoes : c.pants)); // legs, shoes
     return cv;
   }
 
@@ -87,34 +90,77 @@
     return out;
   }
 
-  /* ---------- preview: front and back, drawn flat from the texture ---------- */
-  function drawFigure(view, tex, slim) {
-    const g = view.getContext('2d'); g.imageSmoothingEnabled = false;
-    g.clearRect(0, 0, view.width, view.height);
-    const S = 7, aw = slim ? 3 : 4;
-    const px = (sx, sy, w, h, dx, dy, ox) => g.drawImage(tex, sx, sy, w, h, ox + dx * S, 16 + dy * S, w * S, h * S);
-    const front = (ox) => {
-      px(8, 8, 8, 8, 4, 0, ox); px(40, 8, 8, 8, 4, 0, ox);
-      px(20, 20, 8, 12, 4, 8, ox); px(20, 36, 8, 12, 4, 8, ox);
-      px(44, 20, aw, 12, 4 - aw, 8, ox); px(44, 36, aw, 12, 4 - aw, 8, ox);
-      px(36, 52, aw, 12, 12, 8, ox); px(52, 52, aw, 12, 12, 8, ox);
-      px(4, 20, 4, 12, 4, 20, ox); px(4, 36, 4, 12, 4, 20, ox);
-      px(20, 52, 4, 12, 8, 20, ox); px(4, 52, 4, 12, 8, 20, ox);
+  /* ---------- preview: a 3D model you can turn, built from the skin texture ----------
+     Each body part is a box of six faces (CSS 3D), each face a small canvas cut from the texture. */
+  const S = 8; // screen pixels per skin pixel
+  // Where a box's six faces sit in the unfolded skin: top, bottom, right, front, left, back.
+  const uvOf = (ox, oy, w, h, d) => ({ top: [ox + d, oy, w, d], bottom: [ox + d + w, oy, w, d], right: [ox, oy + d, d, h], front: [ox + d, oy + d, w, h], left: [ox + d + w, oy + d, d, h], back: [ox + d + w + d, oy + d, w, h] });
+  function faceTransforms(w, h, d) {
+    const z = (n) => `${n * S}px`;
+    return {
+      front: [w, h, `translateZ(${z(d / 2)})`], back: [w, h, `rotateY(180deg) translateZ(${z(d / 2)})`],
+      right: [d, h, `rotateY(-90deg) translateZ(${z(w / 2)})`], left: [d, h, `rotateY(90deg) translateZ(${z(w / 2)})`],
+      top: [w, d, `rotateX(90deg) translateZ(${z(h / 2)})`], bottom: [w, d, `rotateX(-90deg) translateZ(${z(h / 2)})`],
     };
-    const back = (ox) => {
-      px(24, 8, 8, 8, 4, 0, ox); px(56, 8, 8, 8, 4, 0, ox);
-      px(32, 20, 8, 12, 4, 8, ox); px(32, 36, 8, 12, 4, 8, ox);
-      const bx = slim ? 51 : 52, lx = slim ? 43 : 44, sx = slim ? 59 : 60;
-      px(bx, 20, aw, 12, 12, 8, ox); px(bx, 36, aw, 12, 12, 8, ox);
-      px(lx, 52, aw, 12, 4 - aw, 8, ox); px(sx, 52, aw, 12, 4 - aw, 8, ox);
-      px(12, 20, 4, 12, 8, 20, ox); px(12, 36, 4, 12, 8, 20, ox);
-      px(28, 52, 4, 12, 4, 20, ox); px(12, 52, 4, 12, 4, 20, ox);
-    };
-    front(22); back(154);
+  }
+  const LIGHT = { front: 1, back: 0.88, right: 0.9, left: 0.9, top: 1.1, bottom: 0.72 };
+
+  function partsFor(slim) {
+    const aw = slim ? 3 : 4;
+    // [x, y] is the part's centre, in skin pixels, with the figure's top at y 0 and the middle of the body at x 0
+    return [
+      { at: [0, 4], size: [8, 8, 8], base: [0, 0], over: [32, 0], grow: 1 },                   // head and hat
+      { at: [0, 14], size: [8, 12, 4], base: [16, 16], over: [16, 32], grow: 0.5 },            // body and jacket
+      { at: [-(4 + aw / 2), 14], size: [aw, 12, 4], base: [40, 16], over: [40, 32], grow: 0.5 }, // right arm (on the viewer's left)
+      { at: [4 + aw / 2, 14], size: [aw, 12, 4], base: [32, 48], over: [48, 48], grow: 0.5 },    // left arm
+      { at: [-2, 26], size: [4, 12, 4], base: [0, 16], over: [0, 32], grow: 0.5 },             // right leg
+      { at: [2, 26], size: [4, 12, 4], base: [16, 48], over: [0, 48], grow: 0.5 },             // left leg
+    ];
   }
 
+  function makeBox(tex, [ox, oy], [w, h, d], [cx, cy], grow) {
+    const box = h_('div', 'box');
+    box.style.transform = `translate3d(${cx * S}px, ${(cy - 16) * S}px, 0)`;
+    const uv = uvOf(ox, oy, w, h, d), tf = faceTransforms(w + grow, h + grow, d + grow);
+    for (const face of Object.keys(uv)) {
+      const [sx, sy, sw, sh] = uv[face], [fw, fh, t] = tf[face];
+      const c = mk(sw, sh); ctxOf(c).drawImage(tex, sx, sy, sw, sh, 0, 0, sw, sh);
+      c.className = 'face';
+      c.style.width = `${fw * S}px`; c.style.height = `${fh * S}px`;
+      c.style.transform = `translate(-50%, -50%) ${t}`;
+      c.style.filter = `brightness(${LIGHT[face]})`;
+      box.append(c);
+    }
+    return box;
+  }
+  const h_ = (tag, cls) => { const e = document.createElement(tag); e.className = cls; return e; };
+
+  function drawFigure(stage, tex, slim) {
+    const fig = $('#skin-fig'); fig.replaceChildren();
+    for (const p of partsFor(slim)) {
+      fig.append(makeBox(tex, p.base, p.size, p.at, 0));           // the skin itself
+      fig.append(makeBox(tex, p.over, p.size, p.at, p.grow));      // hat, jacket, sleeves and so on, a touch larger
+    }
+    turn(spin.angle);
+  }
+
+  // Turning: drag to rotate, slow spin until you touch it, double-click to face front again.
+  const spin = { angle: -28, dragging: false, auto: !matchMedia('(prefers-reduced-motion: reduce)').matches, x: 0 };
+  function turn(a) { spin.angle = a; $('#skin-fig').style.transform = `rotateX(-10deg) rotateY(${a}deg)`; }
+  (() => {
+    const st = $('#skin-stage');
+    st.addEventListener('pointerdown', (e) => { spin.dragging = true; spin.auto = false; spin.x = e.clientX; st.setPointerCapture(e.pointerId); });
+    st.addEventListener('pointermove', (e) => { if (!spin.dragging) return; turn(spin.angle + (e.clientX - spin.x) * 0.8); spin.x = e.clientX; });
+    const up = () => { spin.dragging = false; };
+    st.addEventListener('pointerup', up); st.addEventListener('pointercancel', up);
+    st.addEventListener('dblclick', () => { spin.auto = false; turn(0); });
+    st.addEventListener('keydown', (e) => { if (e.key === 'ArrowLeft') { spin.auto = false; turn(spin.angle - 15); } if (e.key === 'ArrowRight') { spin.auto = false; turn(spin.angle + 15); } });
+    const tick = () => { if (spin.auto && !document.hidden && $('#view-settings').classList.contains('active')) turn(spin.angle + 0.35); requestAnimationFrame(tick); };
+    requestAnimationFrame(tick);
+  })();
+
   /* ---------- the editor ---------- */
-  const view = $('#skin-view');
+  const view = $('#skin-stage');
   let current = null;           // the 64 by 64 canvas being edited
   let model = 'classic';        // arm style of `current`
   let origin = { name: 'My skin' };

@@ -702,8 +702,8 @@ function renderUpdate(u) {
   const show = ['available', 'downloading', 'ready'].includes(update.state) && updateDismissed !== `${v}:${update.state}`;
   bar.hidden = !show;
   if (update.state === 'available') {
-    $('#update-text').textContent = `Crooli MC Launcher ${v} is out.`;
-    btn.hidden = false; btn.textContent = update.auto ? 'Getting it ready…' : 'Download update';
+    $('#update-text').textContent = update.auto ? `Crooli MC Launcher ${v} is out. Downloading it now…` : `Crooli MC Launcher ${v} is out.`;
+    btn.hidden = !!update.auto; btn.textContent = update.auto ? 'Getting it ready…' : 'Download update';
     btn.disabled = !!update.auto;
     sUpdate.textContent = `Version ${v} is available.`;
   } else if (update.state === 'downloading') {
@@ -711,9 +711,9 @@ function renderUpdate(u) {
     btn.hidden = true;
     sUpdate.textContent = `Downloading version ${v}.`;
   } else if (update.state === 'ready') {
-    $('#update-text').textContent = `Version ${v} is ready to install.`;
-    btn.hidden = false; btn.disabled = false; btn.textContent = 'Restart to update';
-    sUpdate.textContent = `Version ${v} installs when you restart.`;
+    $('#update-text').textContent = `Version ${v} is downloaded. It installs when you close the launcher.`;
+    btn.hidden = false; btn.disabled = false; btn.textContent = 'Restart and update';
+    sUpdate.textContent = `Version ${v} is downloaded and installs when you close the launcher.`;
   } else if (update.state === 'latest') {
     sUpdate.textContent = 'You have the latest version.';
   } else if (update.state === 'error') {

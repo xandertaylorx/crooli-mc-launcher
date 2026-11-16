@@ -87,13 +87,21 @@ async function lookup(name) {
   if (!/^\w{3,16}$/.test(name)) throw new Error('Player names are 3 to 16 letters, numbers or underscores.');
   const res = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(name)}`);
   if (res.status === 404 || res.status === 204) throw new Error(`No Minecraft player is called ${name}.`);
-  if (!res.ok) throw new Error('Mojang didn’t answer. Try again in a moment.');
+  if (res.status === 429) throw new Error('Mojang is limiting how fast skins can be looked up. Wait a minute and try again.');
+  if (!res.ok) throw new Error(`Mojang didn’t answer (error ${res.status}). Try again in a moment.`);
   const { id, name: exact } = await res.json();
-  const profile = await getJson(`https://sessionserver.mojang.com/session/minecraft/profile/${id}`);
+  let profile;
+  try { profile = await getJson(`https://sessionserver.mojang.com/session/minecraft/profile/${id}`); }
+  catch (e) { throw new Error(/429/.test(e.message) ? 'Mojang is limiting how fast skins can be looked up. Wait a minute and try again.' : 'Couldn’t get that player’s skin from Mojang. Try again in a moment.'); }
   const tex = JSON.parse(Buffer.from(profile.properties.find((p) => p.name === 'textures').value, 'base64').toString()).textures.SKIN;
   if (!tex) throw new Error(`${exact} is using a default skin, so there’s nothing to copy.`);
-  if (!/^https:\/\/textures\.minecraft\.net\//.test(tex.url)) throw new Error('Unexpected skin address.');
-  const img = await fetch(tex.url);
+  // Mojang hands out these addresses as http://. Only ever fetch from its texture host, and always over https.
+  let url;
+  try { url = new URL(tex.url); } catch { throw new Error('Mojang sent a skin address that can’t be read.'); }
+  if (url.hostname !== 'textures.minecraft.net') throw new Error('Mojang sent a skin from an unexpected place, so it wasn’t downloaded.');
+  url.protocol = 'https:';
+  const img = await fetch(url.href);
+  if (!img.ok) throw new Error('Couldn’t download that skin from Mojang. Try again in a moment.');
   return { name: exact, model: tex.metadata && tex.metadata.model === 'slim' ? 'slim' : 'classic', image: dataUrl(Buffer.from(await img.arrayBuffer())) };
 }
 

@@ -24,9 +24,9 @@ npm run dist:win   # .exe installer (best built on Windows)
 - **Mods, resource packs and shaders**: search Modrinth filtered to your version, one-click install (required mods come along, packs and shaders are turned on, Iris is installed for shaders). Add your own by dropping a file or folder on the window, or with the Add buttons: it works out what each one is.
 - **Crooli's mods**: a tab on the Mods page listing the mods and shader pack from xandertaylorx.github.io/minecraft-mods, read live from that page.
 - **Servers**: create a Minecraft server (Vanilla or Fabric) with one click, start and stop it, run commands in the console, copy the address to share, and open its folders.
-- **Skins**: build a skin from six colours, load a PNG, or copy a player's. Because the account is offline, it's applied as a resource pack when the game starts.
+- **Skins**: build a skin from six colours, load a PNG, or copy a player's, with a 3D preview you can turn. Because the account is offline, it's applied as a resource pack when the game starts.
 - **Import**: finds installs from the Minecraft Launcher, Prism, MultiMC, CurseForge, Modrinth App and others (or any folder you point it at) and copies worlds, mods, packs and settings into a new installation. The originals are never changed.
-- **Updates**: checks GitHub on start and every 6 hours.
+- **Updates**: checks GitHub on start and every 6 hours, downloads a new version in the background (checked against GitHub's checksum) and installs it when you close the launcher, or right away with Restart and update. On Mac the launcher replaces its own app, since Apple only allows the standard updater for apps signed with a paid certificate.
 - **Accounts**: offline mode only for now (singleplayer, LAN, offline-mode servers).
 
 Data lives in `~/Library/Application Support/CrooliLauncher` (mac) or `%APPDATA%\CrooliLauncher` (Windows).
@@ -50,8 +50,13 @@ MIT. Not affiliated with Mojang or Microsoft.
 ## Updates and releases
 
 The launcher checks GitHub for a newer release on start and every 6 hours (Settings has a "Check for updates" button too).
-On Windows it downloads the update in the background and offers **Restart to update**. On macOS the app isn't signed,
-so it can't replace itself: it shows a banner that downloads the right `.dmg` instead.
+It downloads a new version in the background and installs it when the launcher is closed, or right away with **Restart and update**.
+
+- **Windows:** electron-updater does the download and install, using `latest.yml` from the release.
+- **macOS:** Apple only allows the standard updater for apps signed with a paid certificate, so `src/core/updater.js` does it
+  directly: it downloads the `.dmg`, checks it against the SHA-256 GitHub publishes for it, and a helper script swaps the app in
+  place once the launcher has quit (putting the old one back if anything fails). The app has to be in a folder you can write to,
+  such as `/Applications`; otherwise the banner falls back to a download button.
 
 To ship a new version:
 
