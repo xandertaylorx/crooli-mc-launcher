@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Download Crooli MC Launcher</title>
+<meta name="description" content="Download Crooli MC Launcher for Mac (Apple Silicon or Intel) or Windows, and see every release with its notes." />
+<meta name="theme-color" content="#f5f5f3" />
+<script>try{if(localStorage.getItem("crooli-launcher.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+<link rel="canonical" href="https://mclauncher.crooli.com/downloads" />
+<meta property="og:title" content="Download Crooli MC Launcher" />
+<meta property="og:description" content="Free for Mac and Windows. Every release, straight from GitHub." />
+<meta property="og:image" content="https://mclauncher.crooli.com/assets/play-day.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="page-downloads">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="block" viewBox="0 0 8 8"><path style="fill:var(--mark-dirt)" d="M0 3h8v5h-8z"/><path style="fill:var(--mark-grass)" d="M0 0h8v3h-8zM1 3h1v1h-1zM4 3h1v2h-1zM6 3h1v1h-1z"/><path style="fill:var(--mark-shade)" d="M2 5h1v1h-1zM6 6h1v1h-1zM3 7h1v1h-1z"/></symbol>
+  <symbol id="dl" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="/" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span class="product">MC Launcher</span></a>
+  <nav class="pillnav" aria-label="Main">
+    <a href="/#how">How it works</a>
+    <a href="/downloads" aria-current="page">Download</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher" rel="noopener">GitHub</a>
+    <button class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+  </nav>
+</header>
+
+<main>
+  <!-- 1. Intro -->
+  <section class="intro dl-intro">
+    <a class="ver" id="ver" href="#releases" hidden><span class="dot" aria-hidden="true"></span><span>Version <span id="ver-num"></span><span class="ver-date" id="ver-date"></span></span></a>
+    <h1 class="display">Download<br /><span class="dim">Crooli MC Launcher.</span></h1>
+    <p class="lede">Free for Mac and Windows. Install it once and it keeps itself up to date from then on.</p>
+  </section>
+
+  <!-- 2. One card per system; the visitor's own is picked out -->
+  <section class="platforms" id="platforms" aria-label="Installers">
+    <article class="platform" data-os="mac-arm">
+      <h2>Mac with Apple Silicon</h2>
+      <p>M1, M2, M3, M4 and later. Most Macs from 2021 on.</p>
+      <a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .dmg</a>
+      <p class="meta" data-meta></p>
+    </article>
+    <article class="platform" data-os="mac-intel">
+      <h2>Mac with Intel</h2>
+      <p>Older Macs with an Intel processor.</p>
+      <a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .dmg</a>
+      <p class="meta" data-meta></p>
+    </article>
+    <article class="platform" data-os="windows">
+      <h2>Windows</h2>
+      <p>Windows 10 and 11, 64-bit.</p>
+      <a class="btn dark" data-file href="https://github.com/xandertaylorx/crooli-mc-launcher/releases/latest"><svg class="ico"><use href="#dl"/></svg>Download .exe</a>
+      <p class="meta" data-meta></p>
+    </article>
+  </section>
+  <p class="fine center which">Not sure which Mac you have? Open the Apple menu, choose <b>About This Mac</b>, and look for <b>Chip</b> (Apple Silicon) or <b>Processor</b> (Intel).</p>
+
+  <!-- 3. First launch -->
+  <section class="first">
+    <h2 class="h2 center">Opening it the first time.</h2>
+    <p class="lede center">The app isn’t signed by Apple or Microsoft yet, so both may ask before opening it once.</p>
+    <div class="first-cols">
+      <div>
+        <h3>On a Mac</h3>
+        <p>Drag the app into Applications. If macOS says it’s damaged or can’t be opened, paste this into Terminal once:</p>
+        <div class="cmdline">
+          <code id="cmd-xattr">xattr -cr "/Applications/Crooli MC Launcher.app"</code>
+          <button class="copy" type="button" data-copy="#cmd-xattr"><span class="lbl">Copy</span></button>
+        </div>
+      </div>
+      <div>
+        <h3>On Windows</h3>
+        <p>Run the installer. If a blue SmartScreen window appears, choose <b>More info</b>, then <b>Run anyway</b>. Updates install themselves after that.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4. Every release -->
+  <section class="history" aria-labelledby="history-title">
+    <h2 class="h2 center" id="history-title">Every version.</h2>
+    <ol class="releases" id="releases">
+      <li class="rel-loading">Loading releases from GitHub…</li>
+    </ol>
+    <p class="fine center" id="rel-note"></p>
+  </section>
+
+  <!-- 5. Source -->
+  <section class="get">
+    <div class="cmdline">
+      <span class="tag">Source</span>
+      <code id="cmd-src">git clone https://github.com/xandertaylorx/crooli-mc-launcher &amp;&amp; cd crooli-mc-launcher &amp;&amp; npm install &amp;&amp; npm start</code>
+      <button class="copy" type="button" data-copy="#cmd-src"><span class="lbl">Copy</span></button>
+    </div>
+    <p class="fine">Prefer to build it yourself? Run it from source with <a href="https://nodejs.org">Node.js</a>.</p>
+  </section>
+</main>
+
+<footer class="foot">
+  <span>Crooli MC Launcher. Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</span>
+  <nav aria-label="Links">
+    <a href="/">Home</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
+  </nav>
+</footer>
+
+<script src="/site.js"></script>
+<script src="/downloads.js"></script>
+</body>
+</html>

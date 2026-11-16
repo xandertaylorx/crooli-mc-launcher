@@ -76,7 +76,7 @@ function showRelease(rel) {
   const version = rel.tag_name.replace(/^v/, '')
   // The version badge above the headline links to the release notes.
   const ver = $('#ver')
-  ver.href = rel.html_url
+  ver.href = `/downloads#v${version}`
   $('#ver-num').textContent = version
   if (rel.published_at) $('#ver-date').textContent = new Date(rel.published_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' })
   ver.hidden = false
@@ -86,9 +86,9 @@ function showRelease(rel) {
     dl.firstChild.textContent = `Download for ${osName} `
     $('#dl-size').textContent = fmtSize(mine.size)
     $('#hero-dl').textContent = `Download for ${osName}`
-    $('#platform-note').textContent = `Version ${version}. Other systems are under All downloads. The launcher tells you when a newer version is out.`
+    $('#platform-note').textContent = `Version ${version}. Other systems and older versions are on the downloads page. The launcher tells you when a newer version is out.`
   } else {
-    dl.href = rel.html_url
+    dl.href = `/downloads#v${version}`
     $('#platform-note').textContent = `Version ${version}. Pick the file for your system on the release page.`
   }
 }
