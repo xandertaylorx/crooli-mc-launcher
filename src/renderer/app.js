@@ -557,9 +557,10 @@ const KIND = {
   mod:          { title: 'Mods',           one: 'mod',           search: 'Search Modrinth for mods',           installed: 'Installed mods' },
   resourcepack: { title: 'Resource packs', one: 'resource pack', search: 'Search Modrinth for resource packs', installed: 'Installed packs' },
   shader:       { title: 'Shaders',        one: 'shader pack',   search: 'Search Modrinth for shader packs',   installed: 'Installed shaders' },
+  worlds:       { title: 'Worlds',         one: 'world',         search: 'Search worlds',                       installed: 'Worlds in this installation' },
   crooli:       { title: 'Crooli’s mods',  one: 'mod',           search: '',                                    installed: 'Installed mods' },
 };
-const lk = () => (kind === 'crooli' ? 'mod' : kind); // which list the Installed column shows
+const lk = () => (kind === 'crooli' ? 'mod' : kind === 'worlds' ? 'mod' : kind); // which list the Installed column shows
 let kind = 'mod', searchSeq = 0, installedList = [];
 
 function noteFor(i) {
@@ -577,6 +578,8 @@ async function refreshMods() {
   $('#add-file').disabled = $('#add-folder').disabled = !i;
   $('#shader-hint').hidden = true; $('#upd-bar').hidden = true;
   $('#upd-check').hidden = kind !== 'mod' || !i || i.loader === 'vanilla';
+  $('#world-bar').hidden = kind !== 'worlds';
+  if (kind === 'worlds') return refreshWorlds(i);
   if (kind === 'crooli') return refreshCrooli(i);
   const blocked = !i || (kind === 'mod' && !isModded(i)) || (kind === 'shader' && !canShaders(i));
   $('#mod-search').hidden = blocked;
@@ -662,8 +665,66 @@ async function runSearch() {
       h('div', { className: 'acts' }, btn)));
   });
 }
-$('#mod-search').onsubmit = (e) => { e.preventDefault(); runSearch(); };
+$('#mod-search').onsubmit = (e) => { e.preventDefault(); if (kind === 'worlds') renderWorlds(); else runSearch(); };
 document.querySelectorAll('#kind-tabs .subtab').forEach((b) => (b.onclick = () => { kind = b.dataset.kind; $('#mod-q').value = ''; refreshMods(); }));
+
+// ---- Worlds: a checked list on the website, downloaded into the installation's saves folder ----
+let worldData = null, worldState = { downloaded: {}, saved: [] };
+const verNum = (v) => { const p = String(v).split(/[.\-]/).map((x) => parseInt(x, 10)); return (p[0] || 0) * 1e6 + (p[1] || 0) * 1e3 + (p[2] || 0); };
+const sizeText = (b) => (b >= 1048576 ? `${(b / 1048576).toFixed(b >= 1.05e7 ? 0 : 1)} MB` : `${Math.max(1, Math.round(b / 1024))} KB`);
+async function refreshWorlds(i) {
+  $('#mod-search').hidden = false;
+  $('#mod-q').placeholder = 'Search worlds'; $('#mod-q').value = '';
+  $('#mods-note').textContent = i
+    ? `Worlds saved in Minecraft ${i.mc} or older open here and are upgraded on first load, which an older version can’t undo. Each one is checked against a checksum when it’s downloaded.`
+    : 'Create an installation first, then pick a world for it.';
+  const box = $('#mod-results');
+  if (!i) { box.replaceChildren(h('div', { className: 'empty', textContent: 'Create an installation first.' })); $('#mod-installed').replaceChildren(); return; }
+  box.replaceChildren(h('div', { className: 'empty', textContent: 'Loading the list of worlds…' }));
+  const [list, st] = await Promise.all([worldData ? Promise.resolve(worldData) : api.worldList(), api.worldState(i.id)]);
+  if (kind !== 'worlds') return;
+  if (list.error) return box.replaceChildren(h('div', { className: 'empty', textContent: list.error }));
+  worldData = list; worldState = st;
+  renderSavedWorlds(i); renderWorlds();
+}
+function renderSavedWorlds(i) {
+  const box = $('#mod-installed'); box.replaceChildren();
+  if (!worldState.saved.length) box.append(h('div', { className: 'empty', textContent: 'No worlds yet.' }));
+  worldState.saved.forEach((n) => box.append(h('div', { className: 'row' }, h('div', { className: 'info' }, h('div', { className: 't', textContent: n })))));
+}
+function renderWorlds() {
+  const i = inst(), box = $('#mod-results'); if (!i || !worldData) return;
+  const q = $('#mod-q').value.trim().toLowerCase(), sort = $('#world-sort').value, filt = $('#world-filter').value;
+  const mine = (w) => !!worldState.downloaded[w.id], fits = (w) => verNum(w.mc) <= verNum(i.mc);
+  let list = worldData.worlds.filter((w) => (!q || `${w.name} ${w.author} ${w.description}`.toLowerCase().includes(q))
+    && (filt === 'all' || (filt === 'fit' && fits(w)) || (filt === 'mine' && mine(w)) || (filt === 'new' && !mine(w))));
+  const by = { downloads: (a, b) => b.downloads - a.downloads, updated: (a, b) => String(b.updated).localeCompare(String(a.updated)), name: (a, b) => a.name.localeCompare(b.name),
+    size: (a, b) => a.size - b.size, stars: (a, b) => b.stars - a.stars, mc: (a, b) => verNum(b.mc) - verNum(a.mc) };
+  list.sort(by[sort] || by.downloads);
+  box.replaceChildren();
+  if (!list.length) return box.append(h('div', { className: 'empty', textContent: filt === 'fit' ? `No worlds for Minecraft ${i.mc} match that. Try “All worlds”, or change the installation’s version.` : 'Nothing matches that.' }));
+  const nf = new Intl.NumberFormat(undefined, { notation: 'compact' });
+  list.forEach((w) => {
+    const have = mine(w), ok = fits(w);
+    const btn = h('button', { className: 'mc-btn small ' + (have ? '' : 'green'), textContent: have ? 'Downloaded' : ok ? 'Download' : `Needs ${w.mc}+`, title: ok ? '' : `${w.name} was saved in Minecraft ${w.mc}, and ${i.name} is on ${i.mc}. Change the installation’s version first.` });
+    btn.disabled = have || !ok;
+    btn.onclick = async () => {
+      btn.disabled = true; btn.textContent = 'Downloading…';
+      const r = await api.installWorld(i.id, w.id);
+      if (r.error) { btn.disabled = false; btn.textContent = 'Download'; return toast(r.error); }
+      worldState = r.state; toast(`${w.name} is in your saves as “${r.folder}”.`);
+      renderSavedWorlds(i); renderWorlds();
+    };
+    box.append(h('div', { className: 'row' },
+      w.icon ? h('img', { src: 'https://mclauncher.crooli.com/' + w.icon, alt: '' }) : h('div', { className: 'ph' }),
+      h('div', { className: 'info' },
+        h('div', { className: 't' }, w.name, h('span', { className: 'badge', textContent: `${w.mcKnown ? w.mc : 'before 1.9'} · ${sizeText(w.size)}` })),
+        h('div', { className: 'd', textContent: w.description || `By ${w.author}`, title: w.description }),
+        h('div', { className: 'd', textContent: `by ${w.author} · ${nf.format(w.downloads)} downloads · ${w.license}` })),
+      h('div', { className: 'acts' }, btn)));
+  });
+}
+$('#world-sort').onchange = renderWorlds; $('#world-filter').onchange = renderWorlds; $('#mod-q').addEventListener('input', () => { if (kind === 'worlds') renderWorlds(); });
 
 // ---- Crooli's mods: pulled live from xandertaylorx.github.io/minecraft-mods ----
 async function refreshCrooli(i) {

@@ -1,0 +1,29 @@
+{
+  "maxMB": 200,
+  "queries": [
+    "topic:minecraft-map",
+    "topic:minecraft-world",
+    "topic:minecraft-maps",
+    "topic:minecraft-worlds",
+    "topic:minecraft-parkour",
+    "minecraft map download in:name,description",
+    "minecraft world download in:name,description",
+    "minecraft adventure map in:name,description",
+    "minecraft parkour map in:name,description",
+    "minecraft survival world download in:name,description",
+    "minecraft skyblock map in:name,description",
+    "minecraft redstone world download in:name,description",
+    "minecraft city map download in:name,description",
+    "minecraft survival island in:name,description",
+    "minecraft puzzle map in:name,description",
+    "minecraft minigame map in:name,description",
+    "minecraft creative world download in:name,description",
+    "minecraft showcase world in:name,description",
+    "minecraft pvp arena map in:name,description",
+    "minecraft horror map in:name,description",
+    "minecraft speedrun world in:name,description",
+    "topic:minecraft-datapack world"
+  ],
+  "extraRepos": [],
+  "skipRepos": []
+}

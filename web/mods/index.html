@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Mods, shaders, resource packs and worlds: Crooli MC Launcher</title>
+<meta name="description" content="Browse mods, shaders, resource packs and worlds for any Minecraft version and loader. Everything here installs from the Crooli MC Launcher in one click." />
+<meta name="theme-color" content="#f5f5f3" />
+<script>try{if(localStorage.getItem("crooli-launcher.theme")==="dark")document.documentElement.dataset.theme="dark"}catch(e){}</script>
+<link rel="icon" href="/assets/icon.svg" type="image/svg+xml" />
+<link rel="apple-touch-icon" href="/assets/icon.png" />
+<link rel="canonical" href="https://mclauncher.crooli.com/mods" />
+<meta property="og:title" content="Mods, shaders, packs and worlds" />
+<meta property="og:description" content="Browse what the Crooli MC Launcher installs in one click." />
+<meta property="og:image" content="https://mclauncher.crooli.com/assets/play-day.png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&family=Inter:wght@400;500&family=Geist+Mono:wght@400;500&display=swap" />
+<link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="page-mods">
+
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <symbol id="block" viewBox="0 0 8 8"><path style="fill:var(--mark-dirt)" d="M0 3h8v5h-8z"/><path style="fill:var(--mark-grass)" d="M0 0h8v3h-8zM1 3h1v1h-1zM4 3h1v2h-1zM6 3h1v1h-1z"/><path style="fill:var(--mark-shade)" d="M2 5h1v1h-1zM6 6h1v1h-1zM3 7h1v1h-1z"/></symbol>
+  <symbol id="dl" viewBox="0 0 24 24"><path d="M12 4v11M7 11l5 5 5-5M5 20h14"/></symbol>
+</svg>
+
+<header class="topbar">
+  <a class="brand" href="/" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span class="product">MC Launcher</span></a>
+  <p class="topnote">Plays offline: no Microsoft sign-in needed</p>
+  <nav class="pillnav" aria-label="Main">
+    <a href="/#how">How it works</a>
+    <a href="/#features">Features</a>
+    <a href="/mods" aria-current="page">Mods</a>
+    <a href="/downloads">Download</a>
+    <a href="https://github.com/xandertaylorx/crooli-mc-launcher" rel="noopener">GitHub</a>
+    <button class="theme-toggle" type="button" aria-label="Switch to dark theme" aria-pressed="false"><svg class="sun" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2.5v2.5M12 19v2.5M2.5 12H5M19 12h2.5M5.3 5.3l1.8 1.8M16.9 16.9l1.8 1.8M5.3 18.7l1.8-1.8M16.9 7.1l1.8-1.8"/></svg><svg class="moon" viewBox="0 0 24 24" aria-hidden="true"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5z"/></svg></button>
+  </nav>
+</header>
+
+<main>
+  <section class="intro dl-intro">
+    <h1 class="display">Mods, shaders,<br /><span class="dim">packs and worlds.</span></h1>
+    <p class="lede">Browse what the launcher installs. Pick a Minecraft version and a loader, and it only shows what works. Open the launcher and the same lists are in its Mods tab.</p>
+  </section>
+
+  <section class="browse" aria-label="Browse">
+    <div class="seg kinds" id="kinds" role="tablist" aria-label="What to browse">
+      <button type="button" role="tab" data-kind="mod" aria-pressed="true">Mods</button>
+      <button type="button" role="tab" data-kind="shader" aria-pressed="false">Shaders</button>
+      <button type="button" role="tab" data-kind="resourcepack" aria-pressed="false">Resource packs</button>
+      <button type="button" role="tab" data-kind="world" aria-pressed="false">Worlds</button>
+    </div>
+
+    <form class="mbar" id="mbar" autocomplete="off">
+      <label class="field grow"><span>Search</span><input id="m-q" type="search" placeholder="Search mods" spellcheck="false" /></label>
+      <label class="field"><span>Minecraft</span><select id="m-version"><option value="">Any version</option></select></label>
+      <label class="field" id="m-loader-wrap"><span>Loader</span>
+        <select id="m-loader"><option value="">Any loader</option><option value="fabric">Fabric</option><option value="quilt">Quilt</option><option value="neoforge">NeoForge</option><option value="forge">Forge</option></select>
+      </label>
+      <label class="field"><span>Sort by</span><select id="m-sort"></select></label>
+      <label class="field" id="m-show-wrap" hidden><span>Show</span><select id="m-show"><option value="fit">Works with the version</option><option value="all">All worlds</option></select></label>
+    </form>
+    <p class="fine mnote" id="m-note"></p>
+
+    <div class="mgrid" id="results" aria-live="polite"></div>
+    <div class="mmore"><button class="btn ghost" id="more" type="button" hidden>Show more</button></div>
+  </section>
+</main>
+
+<footer class="foot">
+  <canvas class="foot-bg" aria-hidden="true"></canvas>
+  <div class="foot-in">
+    <a class="foot-brand" href="/" aria-label="Crooli MC Launcher home"><svg class="mark" shape-rendering="crispEdges"><use href="#block"/></svg>Crooli<span>MC Launcher</span></a>
+    <nav aria-label="Links">
+      <a href="/downloads">Downloads</a>
+      <a href="https://github.com/xandertaylorx/crooli-mc-launcher">GitHub</a>
+      <a href="https://github.com/xandertaylorx/crooli-mc-launcher/issues">Issues</a>
+    </nav>
+    <p>Free and open source (MIT). Not an official Minecraft product. Not approved by or associated with Mojang or Microsoft.</p>
+  </div>
+</footer>
+
+<script src="/site.js"></script>
+<script src="/mods.js"></script>
+</body>
+</html>

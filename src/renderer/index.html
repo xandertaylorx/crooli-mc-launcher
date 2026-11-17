@@ -75,6 +75,7 @@
         <button class="subtab active" data-kind="mod" role="tab">Mods</button>
         <button class="subtab" data-kind="resourcepack" role="tab">Resource packs</button>
         <button class="subtab" data-kind="shader" role="tab">Shaders</button>
+        <button class="subtab" data-kind="worlds" role="tab">Worlds</button>
         <button class="subtab" data-kind="crooli" role="tab">Crooli’s mods</button>
         <span class="spacer"></span>
         <button id="add-file" class="mc-btn small" type="button">Add a file</button>
@@ -95,6 +96,14 @@
             <input id="mod-q" type="search" placeholder="Search Modrinth" autocomplete="off">
             <button class="mc-btn small" type="submit">Search</button>
           </form>
+          <div id="world-bar" class="world-bar" hidden>
+            <label>Sort by
+              <select id="world-sort"><option value="downloads">Most downloaded</option><option value="updated">Newest</option><option value="name">Name, A to Z</option><option value="size">Smallest first</option><option value="stars">Most starred</option><option value="mc">Newest Minecraft version</option></select>
+            </label>
+            <label>Show
+              <select id="world-filter"><option value="fit">Works with this version</option><option value="all">All worlds</option><option value="mine">Downloaded</option><option value="new">Not downloaded</option></select>
+            </label>
+          </div>
           <div id="mod-results" class="rows"></div>
         </div>
         <div class="pane side">

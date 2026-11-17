@@ -22,6 +22,7 @@ const crash = require('./core/crash');
 const loaders = require('./core/loaders');
 const tunnel = require('./core/tunnel');
 const versionChange = require('./core/versionchange');
+const worlds = require('./core/worlds');
 
 let win, game = null;
 const send = (ch, p) => win && !win.isDestroyed() && win.webContents.send(ch, p);
@@ -185,6 +186,19 @@ ipcMain.handle('instance:version-apply', async (_e, { id, mc }) => {
     const s = store.load(), i = s.instances.find((x) => x.id === id);
     i.mc = mc; store.save(s);
     return { settings: s, result };
+  } catch (e) { return { error: e.message }; }
+});
+// ---- worlds to download into an installation ----
+ipcMain.handle('worlds:list', async () => { try { return await worlds.list(); } catch (e) { return { error: e.message }; } });
+ipcMain.handle('worlds:state', (_e, id) => ({ downloaded: worlds.downloaded(instDir(id)), saved: worlds.saved(instDir(id)) }));
+ipcMain.handle('worlds:install', async (_e, { id, worldId }) => {
+  const inst = getInst(id); if (!inst) return { error: 'Pick an installation first.' };
+  if (game) return { error: 'Close Minecraft first.' };
+  try {
+    const w = ((await worlds.list()).worlds || []).find((x) => x.id === worldId); // the page never supplies the address
+    if (!w) return { error: 'That world isn’t on the list any more.' };
+    const r = await worlds.install(instDir(id), w, (pct) => send('worlds:progress', { worldId, pct }));
+    return { ok: true, folder: r.folder, state: { downloaded: worlds.downloaded(instDir(id)), saved: worlds.saved(instDir(id)) } };
   } catch (e) { return { error: e.message }; }
 });
 ipcMain.handle('instance:open', (_e, id) => { fs.mkdirSync(instDir(id), { recursive: true }); return shell.openPath(instDir(id)); });
